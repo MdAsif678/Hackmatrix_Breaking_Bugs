@@ -1,4 +1,4 @@
-"""Canonical report hashing — AGENTS.md §7. Owner: P4.
+"""Canonical report hashing — AGENTS.md §7. Owner: P1. Guide: docs/tasks/P1-lead.md
 
 The hash covers the whole report EXCEPT the `chain` field (which is filled after
 registration). Anyone can recompute it from the stored report and compare it with

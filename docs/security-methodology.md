@@ -1,4 +1,4 @@
-# Security Methodology (Owners: P2 + P3)
+# Security Methodology (Owners: P1 + P2 + P3)
 
 ## Safe URL inspection (SSRF protection)
 

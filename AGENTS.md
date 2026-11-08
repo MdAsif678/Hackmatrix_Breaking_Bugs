@@ -31,18 +31,21 @@ Judging weights: Cybersecurity 30% · AI 20% · Web3 20% · Technical 20% · UX 
 | Database | **SQLite** (single file `backend/data/app.db`), via `sqlite3` or SQLModel |
 | AI | One LLM provider behind a single wrapper `backend/app/ai/llm.py` (provider + key from `.env`) |
 | Frontend | **React + Vite + TypeScript + Tailwind CSS** |
-| Blockchain | **Solidity** + **Hardhat**, deployed to **Ethereum Sepolia testnet**; backend talks to it with `web3.py` |
+| Blockchain | **Solidity**, written & deployed with **Remix + MetaMask** to **Ethereum Sepolia testnet** (Hardhat optional); backend talks to it with `web3.py` |
 
 ---
 
 ## 3. Folder structure & ownership
 
-| Person | Role |
-|---|---|
-| **P1** | Foundation, pipeline, risk engine, dashboard UI, integration, deployment |
-| **P2** | Cybersecurity: URL/phishing checks, threat intel, TLS, headers, SSRF-safe fetching |
-| **P3** | AI: scam message analysis, evidence-grounded explanations, correlation |
-| **P4** | Web3: smart contract, hashing, on-chain registry & verification, registry UI, testing report |
+P1 (team lead) owns the hard, tightly-connected parts. P2–P4 own self-contained modules with clear
+inputs/outputs and a step-by-step guide in `docs/tasks/`.
+
+| Person | Role | Step-by-step guide |
+|---|---|---|
+| **P1 — Lead** | Pipeline & risk engine, SSRF-safe fetching, TLS certificate analysis, LLM wrapper & AI explanations, correlation, blockchain backend (`web3.py`), dashboard, integration, demo | [docs/tasks/P1-lead.md](docs/tasks/P1-lead.md) |
+| **P2 — Security checks** | URL/phishing indicators, DNS & domain age, threat-intel feeds, security headers | [docs/tasks/P2-security.md](docs/tasks/P2-security.md) |
+| **P3 — Scam messages (AI)** | Indicator extraction, scam-pattern rules, sample message dataset, scam-classification prompt | [docs/tasks/P3-ai.md](docs/tasks/P3-ai.md) |
+| **P4 — Web3 & testing** | Smart contract (Remix), Sepolia deployment, registry/verify UI, testing report, demo script | [docs/tasks/P4-web3.md](docs/tasks/P4-web3.md) |
 
 ```
 /
@@ -52,7 +55,7 @@ Judging weights: Cybersecurity 30% · AI 20% · Web3 20% · Technical 20% · UX 
 ├── .env.example                   (P1 — add your keys' NAMES here, never real values)
 ├── backend/
 │   ├── requirements.txt           (shared — append only, keep sorted)
-│   ├── data/                      (SQLite db, datasets e.g. brand list, distrusted CAs)
+│   ├── data/                      brands.json (P2), sample_messages.json (P3), distrusted_cas.json (P1), app.db
 │   ├── app/
 │   │   ├── main.py                (P1) FastAPI app, CORS, router include
 │   │   ├── config.py              (P1) reads .env
@@ -61,21 +64,21 @@ Judging weights: Cybersecurity 30% · AI 20% · Web3 20% · Technical 20% · UX 
 │   │   ├── pipeline.py            (P1) runs analyzers in parallel, builds AnalysisReport
 │   │   ├── api/routes.py          (P1) HTTP endpoints (see §5)
 │   │   ├── risk/engine.py         (P1) deterministic risk classification (see §6)
-│   │   ├── core/safe_fetch.py     (P2) THE ONLY way to make HTTP requests to user-supplied URLs
+│   │   ├── core/safe_fetch.py     (P1) THE ONLY way to make HTTP requests to user-supplied URLs
 │   │   ├── analyzers/
-│   │   │   ├── url_analyzer.py    (P2) URL normalisation, lexical/phishing indicators, redirects
+│   │   │   ├── url_analyzer.py    (P2) lexical/phishing indicators (typosquatting, homoglyphs...), redirects
 │   │   │   ├── dns_analyzer.py    (P2) DNS records, domain age (WHOIS/RDAP)
 │   │   │   ├── threat_intel.py    (P2) URLhaus / OpenPhish / Google Safe Browsing / PhishTank
-│   │   │   ├── tls_analyzer.py    (P2) certificate & chain checks, crt.sh CT lookup
+│   │   │   ├── tls_analyzer.py    (P1) certificate & chain checks, crt.sh CT lookup
 │   │   │   ├── headers_analyzer.py(P2) passive security header / mixed-content checks
-│   │   │   └── message_analyzer.py(P3) scam message analysis + indicator extraction
+│   │   │   └── message_analyzer.py(P3) indicator extraction, scam-pattern rules, LLM classification
 │   │   ├── ai/
-│   │   │   ├── llm.py             (P3) single LLM wrapper: llm_json(system, user, schema) -> dict
-│   │   │   └── explain.py         (P3) explanation generated ONLY from findings
-│   │   ├── correlation/engine.py  (P3) link related reports (shared domains/IPs/indicators)
+│   │   │   ├── llm.py             (P1) single LLM wrapper: llm_json(system, user, schema) -> model | None
+│   │   │   └── explain.py         (P1) explanation generated ONLY from findings
+│   │   ├── correlation/engine.py  (P1) link related reports (shared domains/IPs/indicators)
 │   │   └── registry/
-│   │       ├── hashing.py         (P4) canonical JSON + SHA-256 (see §7)
-│   │       └── chain.py           (P4) web3.py submit / read / verify
+│   │       ├── hashing.py         (P1) canonical JSON + SHA-256 (see §7)
+│   │       └── chain.py           (P1) web3.py submit / read / verify (uses P4's ABI + address)
 │   └── tests/                     (P1 owns conftest.py; each person adds test_<module>.py)
 ├── frontend/
 │   └── src/
@@ -84,11 +87,13 @@ Judging weights: Cybersecurity 30% · AI 20% · Web3 20% · Technical 20% · UX 
 │       ├── pages/                 (P1) HomePage (submit), ReportPage, HistoryPage
 │       ├── components/            (P1) shared UI: RiskBadge, FindingCard, CheckSection, labels
 │       └── features/registry/     (P4) RegistryPanel ("Register on-chain"), VerifyPage
-├── contracts/                     (P4) Hardhat project: ThreatRegistry.sol, tests, deploy script
+├── contracts/                     (P4) ThreatRegistry.sol, ThreatRegistry.abi.json, deployment.json
 └── docs/
     ├── architecture.md            (P1, everyone adds their section)
     ├── testing-report.md          (P4, everyone contributes cases)
-    └── security-methodology.md    (P2 + P3)
+    ├── demo-script.md             (P4)
+    ├── security-methodology.md    (P1 + P2 + P3)
+    └── tasks/                     step-by-step guide per person (P1 maintains)
 ```
 
 **Rule:** your AI edits only your files. Need a change in someone else's file? Ask that person.
@@ -176,7 +181,7 @@ async def analyze(target: str) -> CheckResult: ...
 - URL analyzers (`url`, `dns`, `threat_intel`, `tls`, `headers`) receive a **normalized absolute URL**,
   e.g. `"https://example.com/login"` — extract the host yourself with `urllib.parse.urlsplit`.
 - `message_analyzer` receives the raw pasted text and must put extracted indicators in
-  `data["indicators"] = {"urls": [...], "domains": [...], "emails": [...], "phones": [...], "upi_ids": [...]}`.
+  `data["indicators"] = {"urls": [...], "domains": [...], "emails": [...], "phones": [...], "upi_ids": [...], "amounts": [...]}`.
   The pipeline copies them to `report.extracted_indicators` and runs URL checks on the first 3 `urls`.
 - **Never raise.** Catch all exceptions and return `status="error"` with a `limitations` entry.
   Helpers: `skipped()`, `error_result()`, `run_cli()` in `app/analyzers/base.py`.
@@ -218,7 +223,7 @@ The LLM may *explain* the result but must never set or override `risk_level`.
 
 ---
 
-## 7. Hashing & blockchain (P4 owns, everyone must respect)
+## 7. Hashing & blockchain (contract: P4 · backend hashing/web3.py: P1)
 
 - **Canonical JSON:** `json.dumps(report.model_dump(mode="json", exclude={"chain"}), sort_keys=True, separators=(",", ":"), ensure_ascii=False)`
 - **Hash:** SHA-256 of that UTF-8 string → `"0x" + hexdigest` → stored on-chain as `bytes32`.
@@ -227,12 +232,13 @@ The LLM may *explain* the result but must never set or override `risk_level`.
 - **Only the hash + risk level + timestamp go on-chain.** Never raw URLs, messages, emails, phone numbers or personal data.
 - A blockchain record proves a report's **integrity and history**, not that the report is **true**.
 
-Contract `contracts/contracts/ThreatRegistry.sol` (minimum interface):
+Contract `contracts/ThreatRegistry.sol` (minimum interface):
 ```solidity
 function submitReport(bytes32 reportHash, string calldata riskLevel) external returns (uint256 id);
 function reviseReport(uint256 id, bytes32 newHash) external;          // keeps revision history
 function disputeReport(uint256 id, string calldata reasonCode) external; // short code, no PII
 function getReport(uint256 id) external view returns (bytes32 hash, address submitter, uint256 timestamp, string memory riskLevel, uint8 status, uint256 revisions);
+function reportCount() external view returns (uint256);              // ids start at 1; status 0=Active 1=Disputed 2=Revised
 event ReportSubmitted(uint256 indexed id, bytes32 reportHash, address indexed submitter, uint256 timestamp);
 event ReportRevised(uint256 indexed id, bytes32 newHash, uint256 revision);
 event ReportDisputed(uint256 indexed id, address indexed by, string reasonCode);
@@ -293,6 +299,7 @@ Everything below already exists and runs (`python -m pytest -q` in `backend/` pa
   Replace the body; keep the signature. Registry endpoints return **501** until `chain.py` is implemented.
 - Frontend: Investigate page (URL + message tabs), Report page, History page, Verify page, Registry panel.
 - `backend/data/brands.json`: starter list of brands + official domains for typosquatting checks (P2 extends).
+- `docs/tasks/`: one step-by-step guide per person — start there.
 - Add tests for your module in `backend/tests/test_<module>.py`.
 
 ---
@@ -300,7 +307,7 @@ Everything below already exists and runs (`python -m pytest -q` in `backend/` pa
 ## 10. Team workflow
 
 - `git pull` before you start; commit small and often; push at least every 2–3 hours.
-- One branch per person (`p1-foundation`, `p2-security`, `p3-ai`, `p4-web3`), merge into `main` frequently.
+- One branch per person (`p1-lead`, `p2-security`, `p3-ai`, `p4-web3`), merge into `main` frequently.
 - Until a real module is ready, the pipeline uses its **stub** (returns `status="skipped"`). Replace the stub, don't
   change the function signature.
 - Each module must work standalone first: `python -m app.analyzers.tls_analyzer example.com` should print a `CheckResult`.
@@ -321,39 +328,26 @@ P1 foundation checklist:
 3. Stub analyzers for every file in `analyzers/` returning `CheckResult(status="skipped")`
 4. `pipeline.py`: run analyzers in parallel with `asyncio.gather` + timeout, compute coverage, call risk engine, save report
 5. `risk/engine.py` implementing §6
-6. `routes.py` with all §5 endpoints (registry/correlation endpoints can return 501 until P3/P4 plug in)
+6. `routes.py` with all §5 endpoints (registry/correlation endpoints can return 501 until implemented)
 7. `frontend`: Vite + React + TS + Tailwind; Home page (URL tab + Message tab), Report page rendering a report
 8. `README.md` with run steps; confirm `uvicorn app.main:app --reload` and `npm run dev` both work; push to `main`
 
 ### Phase 2 — Build modules into the skeleton (Hour 3–16)
 
-**P2 — Cybersecurity (30% of marks)**
-1. `safe_fetch.py` (SSRF rules in §8) — top priority, others depend on it
-2. `url_analyzer.py`: normalisation (punycode/IDN), IP-as-host, `@` in URL, many subdomains, suspicious TLDs,
-   URL shorteners, redirect params, very long URLs, **typosquatting** (Levenshtein vs `data/brands.json`),
-   **homoglyphs/mixed scripts**, brand name in subdomain/path; redirect chain via `safe_fetch`
-3. `threat_intel.py`: URLhaus API + OpenPhish feed (cached) + Google Safe Browsing (if key) → `authoritative=True` on match
-4. `tls_analyzer.py`: validity dates, hostname/SAN match, issuer & chain, self-signed, key type/size, signature
-   algorithm, protocol version, crt.sh CT history (recent/unexpected issuance), match against `data/distrusted_cas.json`
-5. `dns_analyzer.py`: A/AAAA/MX/NS, domain age (WHOIS/RDAP — new domain < 30 days = finding)
-6. `headers_analyzer.py`: HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HTTP→HTTPS, mixed content
+Full step-by-step instructions, examples and "done when" checks are in `docs/tasks/`. Summary:
 
-**P3 — AI**
-1. `llm.py`: `llm_json(system, user, schema)` with timeout + JSON validation + graceful failure
-2. `message_analyzer.py`: regex extraction (URLs, domains, emails, phones, UPI IDs, amounts) + rule-based patterns
-   (urgency, OTP/password/KYC requests, payment requests, prize/refund/job offers, impersonated brands) + LLM
-   classification → findings with evidence quotes. Rules + LLM must agree for `high` severity.
-3. `explain.py`: given all findings → `Explanation` citing finding ids; prompt-injection safe (§8)
-4. `correlation/engine.py`: link reports sharing domains / IPs / registrable domains / payment IDs / cert fingerprints /
-   similar message text (deterministic matching; AI only summarises the link)
+| Who | Builds (in this order) |
+|---|---|
+| **P1** | `safe_fetch.py` → `llm.py` → `chain.py` (after P4 deploys) → `tls_analyzer.py` → `explain.py` (LLM) → `correlation/engine.py` → integration & merges |
+| **P2** | `url_analyzer.py` (offline string checks) → `dns_analyzer.py` → `threat_intel.py` → `headers_analyzer.py` → redirect checks (after P1's `safe_fetch`) |
+| **P3** | indicator extraction → scam-pattern rules → `data/sample_messages.json` → LLM scam classification (after P1's `llm.py`) |
+| **P4** | MetaMask + Sepolia test ETH → `ThreatRegistry.sol` in Remix → deploy → hand ABI + address to P1 → registry/verify UI → testing report → demo script |
 
-**P4 — Web3 + Testing**
-1. Hardhat project, `ThreatRegistry.sol` (§7), unit tests, deploy script → Sepolia; save address in `.env` & README
-2. `hashing.py` + `chain.py` (submit / getReport / verify) using `web3.py`
-3. Wire `/api/registry/submit` and `/api/registry/verify`
-4. `frontend/src/features/registry/`: "Register on-chain" button on report page, Verify page showing
-   recomputed hash vs on-chain hash, tx link to Sepolia Etherscan, tamper demo (edit report → mismatch)
-5. Own `docs/testing-report.md`: collect ≥3 malicious + ≥3 benign cases with observed results
+**Hand-offs (tell the team in chat when done):**
+- P1 `safe_fetch.py` ready → unblocks P2's `headers_analyzer` and redirect checks
+- P1 `llm.py` ready → unblocks P3's LLM step
+- P4 contract deployed (ABI + address + throwaway wallet key sent privately to P1) → unblocks P1's `chain.py`
+- P1 `chain.py` ready → P4 tests the registry UI against the real chain
 
 **Target: first full end-to-end flow (submit → report → on-chain → verify) working by Hour 16.**
 

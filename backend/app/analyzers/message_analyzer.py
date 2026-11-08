@@ -1,6 +1,6 @@
 """Scam / social-engineering message analysis.
 
-Owner: P3. See AGENTS.md §11 for the full task list.
+Owner: P3. Guide: docs/tasks/P3-ai.md
 STUB: returns status="skipped" until implemented. Keep the signature unchanged.
 
 Contract with the pipeline: put extracted indicators in

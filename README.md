@@ -83,12 +83,15 @@ sample findings (labelled "MOCK DATA") for UI and on-chain work. **Turn it off f
 
 ## Project status
 
+Each person has a step-by-step guide in [docs/tasks/](docs/tasks/).
+
 | Module | Owner | Status |
 |---|---|---|
-| Foundation, pipeline, risk engine, dashboard | P1 | ✅ skeleton working |
-| SSRF-safe fetch, URL/DNS/TLS/headers/threat-intel checks | P2 | ⏳ stubs |
-| Message analysis, AI explanation, correlation | P3 | ⏳ stubs (rule-based explanation fallback works) |
-| Smart contract, on-chain registry, verification | P4 | ⏳ stubs (hashing done) |
+| Foundation, pipeline, risk engine, dashboard, hashing | P1 | ✅ working |
+| SSRF-safe fetch, TLS analysis, LLM wrapper, AI explanation, correlation, web3.py backend | P1 | ⏳ stubs (rule-based explanation fallback works) |
+| URL/phishing, DNS & domain age, threat intel, security headers | P2 | ⏳ stubs |
+| Scam message analysis (indicators, rules, LLM classification) | P3 | ⏳ stub (basic URL extraction works) |
+| Smart contract (Remix → Sepolia), registry/verify UI, testing report, demo script | P4 | ⏳ basic UI done |
 
 ## Deliverables checklist
 

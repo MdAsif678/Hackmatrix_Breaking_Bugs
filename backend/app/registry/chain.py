@@ -1,8 +1,8 @@
-"""On-chain threat-report registry via web3.py. Owner: P4.
+"""On-chain threat-report registry via web3.py. Owner: P1. Guide: docs/tasks/P1-lead.md
 
 Only the report hash + risk level go on-chain — never URLs, messages or personal data.
 Uses SEPOLIA_RPC_URL, REGISTRY_PRIVATE_KEY (throwaway testnet wallet) and
-REGISTRY_CONTRACT_ADDRESS from .env. Contract ABI: contracts/ build output.
+REGISTRY_CONTRACT_ADDRESS from .env. ABI: contracts/ThreatRegistry.abi.json (from P4).
 """
 from app.registry.hashing import report_hash
 from app.schemas import AnalysisReport, ChainRecord, VerifyResult
@@ -14,7 +14,7 @@ class RegistryNotConfigured(NotImplementedError):
 
 def submit(report: AnalysisReport) -> ChainRecord:
     """Call ThreatRegistry.submitReport(hash, riskLevel); wait for receipt; return the record."""
-    # TODO(P4)
+    # TODO(P1)
     raise RegistryNotConfigured("On-chain registry not implemented yet")
 
 
@@ -23,5 +23,5 @@ def verify(report: AnalysisReport) -> VerifyResult:
     recomputed = report_hash(report)
     if report.chain is None:
         return VerifyResult(recomputed_hash=recomputed, match=False, status="not_registered")
-    # TODO(P4): read on-chain hash + timestamp, compare
+    # TODO(P1): read on-chain hash + timestamp, compare
     raise RegistryNotConfigured("On-chain verification not implemented yet")

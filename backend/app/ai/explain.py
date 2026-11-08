@@ -1,4 +1,4 @@
-"""Evidence-grounded explanation of a report. Owner: P3.
+"""Evidence-grounded explanation of a report. Owner: P1. Guide: docs/tasks/P1-lead.md
 
 The explanation may only use facts present in report.checks[*].findings and must never
 change report.risk_level. The rule-based fallback below is used when the LLM is
@@ -31,6 +31,6 @@ def fallback_explanation(report: AnalysisReport) -> Explanation:
 
 
 async def explain(report: AnalysisReport) -> Optional[Explanation]:
-    # TODO(P3): build a prompt from the findings only, call ai.llm.llm_json(..., Explanation),
+    # TODO(P1): build a prompt from the findings only, call ai.llm.llm_json(..., Explanation),
     # check every key point cites a real finding id, else fall back.
     return fallback_explanation(report)

@@ -1,6 +1,6 @@
 """Threat-intel lookups: URLhaus, OpenPhish, Google Safe Browsing, PhishTank. Set authoritative=True on a match.
 
-Owner: P2. See AGENTS.md §11 for the full task list.
+Owner: P2. Guide: docs/tasks/P2-security.md
 STUB: returns status="skipped" until implemented. Keep the signature unchanged.
 
 Run standalone:  python -m app.analyzers.threat_intel <target>

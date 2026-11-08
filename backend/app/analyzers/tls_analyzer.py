@@ -1,6 +1,6 @@
 """TLS certificate & chain analysis: validity, hostname/SAN, issuer, key/signature strength, CT logs (crt.sh), distrusted CAs.
 
-Owner: P2. See AGENTS.md §11 for the full task list.
+Owner: P1. Guide: docs/tasks/P1-lead.md
 STUB: returns status="skipped" until implemented. Keep the signature unchanged.
 
 Run standalone:  python -m app.analyzers.tls_analyzer <target>
@@ -11,7 +11,7 @@ from app.schemas import CheckResult
 
 async def analyze(target: str) -> CheckResult:
     try:
-        # TODO(P2): implement. Return CheckResult(check="tls", status="ok", findings=[...], data={...})
+        # TODO(P1): implement. Return CheckResult(check="tls", status="ok", findings=[...], data={...})
         return skipped("tls")
     except Exception as exc:  # never raise
         return error_result("tls", exc)

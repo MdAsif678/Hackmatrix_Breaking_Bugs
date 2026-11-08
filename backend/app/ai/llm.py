@@ -1,4 +1,4 @@
-"""Single LLM wrapper — the only place that talks to an AI provider. Owner: P3.
+"""Single LLM wrapper — the only place that talks to an AI provider. Owner: P1. Guide: docs/tasks/P1-lead.md
 
 Provider, key and model come from .env (LLM_PROVIDER, LLM_API_KEY, LLM_MODEL).
 
@@ -26,5 +26,5 @@ async def llm_json(system: str, user: str, schema: type[T]) -> Optional[T]:
     """Ask the LLM for JSON matching `schema`. Returns None if unavailable or invalid."""
     if not llm_available():
         return None
-    # TODO(P3): call the provider, parse JSON, validate with schema.model_validate_json(...)
+    # TODO(P1): call the provider, parse JSON, validate with schema.model_validate_json(...)
     return None

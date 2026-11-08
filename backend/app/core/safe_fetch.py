@@ -1,4 +1,4 @@
-"""SSRF-safe HTTP fetching — THE ONLY way to request a user-supplied URL. Owner: P2.
+"""SSRF-safe HTTP fetching — THE ONLY way to request a user-supplied URL. Owner: P1. Guide: docs/tasks/P1-lead.md
 
 Never call httpx/requests/urllib directly on a user-supplied URL anywhere else.
 
@@ -34,5 +34,5 @@ MAX_REDIRECTS = 5
 
 
 async def safe_fetch(url: str, method: str = "GET", max_redirects: int = MAX_REDIRECTS) -> FetchResult:
-    # TODO(P2): implement per the rules above.
+    # TODO(P1): implement per the rules above.
     raise NotImplementedError("safe_fetch is not implemented yet")
