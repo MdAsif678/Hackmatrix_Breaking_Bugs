@@ -72,10 +72,11 @@ export interface VerifyResult {
   match: boolean
   tx_hash?: string | null
   block_timestamp?: number | null
-  status: string // "verified" | "mismatch" | "not_registered"
+  status: string // "verified" | "mismatch" | "untrusted_submitter" | "registered_late" | "not_registered"
   chain_status?: string | null // on-chain record: active / disputed / revised
   submitter?: string | null
   explorer_url?: string | null // block-explorer link for the registration tx
+  detail?: string | null // plain-English explanation of the result — show this to the user
 }
 
 export interface RelatedReport {
@@ -84,6 +85,7 @@ export interface RelatedReport {
   label?: string | null
   risk_level?: RiskLevel | null
   created_at?: string | null
+  relation: 'same_site' | 'campaign' // same website checked again vs a different site/message sharing details
 }
 
 export interface CorrelationResult {

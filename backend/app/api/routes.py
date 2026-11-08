@@ -59,6 +59,8 @@ async def registry_submit(report_id: str) -> ChainRecord:
         return report.chain
     try:
         record = await run_in_threadpool(chain.submit, report)
+    except chain.RegistrationRejected as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except NotImplementedError as exc:
         raise HTTPException(status_code=501, detail=str(exc))
     except chain.RegistryError as exc:

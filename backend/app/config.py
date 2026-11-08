@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     sepolia_rpc_url: str = ""
     registry_private_key: str = ""
     registry_contract_address: str = ""
+    # A report may only be registered on-chain within this many hours of being created, and Verify rejects
+    # seals added later than that (stops someone editing a report and sealing the fake version afterwards).
+    registration_window_hours: float = 24.0
 
     # General
     check_timeout_seconds: float = 8.0

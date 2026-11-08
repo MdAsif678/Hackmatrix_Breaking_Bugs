@@ -58,3 +58,18 @@ def test_hash_is_stable_across_save_and_load(client):
 
 def test_unknown_report_404(client):
     assert client.get("/api/reports/nope").status_code == 404
+
+
+def test_internal_addresses_blocked_with_clear_message(client):
+    for url in ("http://127.0.0.1/admin", "http://localhost:8000/", "http://169.254.169.254/latest/meta-data/",
+                "http://10.0.0.5/", "http://[::1]/"):
+        r = client.post("/api/analyze/url", json={"url": url})
+        assert r.status_code == 422 and "Blocked for safety" in r.json()["detail"], url
+
+
+def test_internal_links_in_messages_not_opened(client):
+    text = "Check http://169.254.169.254/latest/meta-data/ and http://unresolvable-site-zzzz.example/x"
+    report = client.post("/api/analyze/message", json={"text": text}).json()
+    targets = {c["target"] for c in report["checks"] if c["check"] != "message"}
+    assert targets == {"http://unresolvable-site-zzzz.example/x"}
+    assert any("private/internal" in lim for lim in report["limitations"])

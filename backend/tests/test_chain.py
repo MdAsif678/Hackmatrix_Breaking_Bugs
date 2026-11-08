@@ -1,5 +1,6 @@
 """Tests for the on-chain registry bridge, using an in-memory fake of the ThreatRegistry contract."""
 import json
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -7,6 +8,10 @@ import pytest
 from app.config import settings
 from app.registry import chain
 from app.registry.hashing import report_hash
+
+
+OFFICIAL = "0x" + "cd" * 20  # TrustLens's registry wallet
+HACKER = "0x" + "66" * 20
 
 
 class FakeRegistry:
@@ -26,12 +31,12 @@ class FakeRegistry:
     def _get(self, rid: int):
         if rid not in self.records:
             raise ValueError("unknown id")
-        h, risk = self.records[rid]
-        return SimpleNamespace(call=lambda: (h, "0x" + "cd" * 20, 1_762_600_000, risk, 0, 0))
+        h, risk, submitter, ts = self.records[rid]
+        return SimpleNamespace(call=lambda: (h, submitter, ts, risk, 0, 0))
 
-    def mine(self, call):
+    def mine(self, call, submitter=OFFICIAL, timestamp=None):
         self._last_id += 1
-        self.records[self._last_id] = call.args
+        self.records[self._last_id] = (*call.args, submitter, int(timestamp or time.time()))
         return self._last_id
 
     def _events(self, receipt):
@@ -41,7 +46,7 @@ class FakeRegistry:
 @pytest.fixture
 def fake_chain(monkeypatch):
     registry = FakeRegistry()
-    conn = chain._Conn(w3=None, contract=registry, account=None, network="sepolia")
+    conn = chain._Conn(w3=None, contract=registry, account=SimpleNamespace(address=OFFICIAL), network="sepolia")
     monkeypatch.setattr(chain, "_connection", lambda: conn)
     monkeypatch.setattr(chain, "_send", lambda c, call: ("0x" + "12" * 32, {"status": 1, "id": registry.mine(call)}))
     return registry
@@ -79,7 +84,7 @@ def test_register_verify_tamper_flow(client, fake_chain):
     stored = client.get(f"/api/reports/{rid}").json()
     assert stored["chain"]["report_hash"] == record["report_hash"]
     # only the hash and risk level reached the "chain" — never the URL
-    assert fake_chain.records[1] == (bytes.fromhex(record["report_hash"][2:]), stored["risk_level"])
+    assert fake_chain.records[1][:2] == (bytes.fromhex(record["report_hash"][2:]), stored["risk_level"])
 
     ok = client.get(f"/api/registry/verify/{rid}").json()
     assert ok["match"] is True and ok["status"] == "verified" and ok["chain_status"] == "active"
@@ -117,3 +122,55 @@ def test_hash_ignores_chain_field(client, fake_chain):
     before = report_hash(db.get_report(rid))
     client.post(f"/api/registry/submit/{rid}")
     assert report_hash(db.get_report(rid)) == before
+
+
+def _tamper_and_reseal(rid, fake_chain, submitter, timestamp=None):
+    """Hacker edits the stored report, seals the edited version himself and points the report at his seal."""
+    from app import db
+    from app.schemas import ChainRecord, RiskLevel
+
+    report = db.get_report(rid)
+    report.risk_level = RiskLevel.low_risk
+    fake_hash = report_hash(report)
+    slot = fake_chain.mine(SimpleNamespace(args=(bytes.fromhex(fake_hash[2:]), "low_risk")),
+                           submitter=submitter, timestamp=timestamp)
+    report.chain = ChainRecord(report_hash=fake_hash, chain_report_id=slot, tx_hash="0x" + "99" * 32,
+                               network="sepolia", contract_address=fake_chain.address)
+    db.save_report(report)
+
+
+def test_fake_seal_by_another_wallet_is_rejected(client, fake_chain):
+    rid = client.post("/api/analyze/url", json={"url": "example.com"}).json()["id"]
+    client.post(f"/api/registry/submit/{rid}")
+    _tamper_and_reseal(rid, fake_chain, submitter=HACKER)
+    r = client.get(f"/api/registry/verify/{rid}").json()
+    assert r["match"] is False and r["status"] == "untrusted_submitter" and HACKER in r["detail"]
+
+
+def test_late_seal_is_rejected_even_from_official_wallet(client, fake_chain):
+    rid = client.post("/api/analyze/url", json={"url": "example.com"}).json()["id"]
+    client.post(f"/api/registry/submit/{rid}")
+    _tamper_and_reseal(rid, fake_chain, submitter=OFFICIAL, timestamp=time.time() + 30 * 24 * 3600)
+    r = client.get(f"/api/registry/verify/{rid}").json()
+    assert r["match"] is False and r["status"] == "registered_late"
+
+
+def test_verified_result_has_plain_english_detail(client, fake_chain):
+    rid = client.post("/api/analyze/url", json={"url": "example.com"}).json()["id"]
+    assert client.get(f"/api/registry/verify/{rid}").json()["status"] == "not_registered"
+    client.post(f"/api/registry/submit/{rid}")
+    r = client.get(f"/api/registry/verify/{rid}").json()
+    assert r["status"] == "verified" and "exactly as it was" in r["detail"]
+
+
+def test_old_reports_cannot_be_registered(client, fake_chain):
+    from datetime import timedelta
+
+    from app import db
+
+    rid = client.post("/api/analyze/url", json={"url": "example.com"}).json()["id"]
+    report = db.get_report(rid)
+    report.created_at = report.created_at - timedelta(days=3)
+    db.save_report(report)
+    r = client.post(f"/api/registry/submit/{rid}")
+    assert r.status_code == 409 and "within 24 hours" in r.json()["detail"]

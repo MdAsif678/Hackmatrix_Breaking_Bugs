@@ -31,6 +31,7 @@ def test_same_registrable_domain_linked_across_subdomains():
     assert engine.find_related(b) == [a.id]
     details = engine.related_details(a).related  # live: earlier report sees the later one too
     assert details[0].report_id == b.id and "same domain: sbi-kyc-update.com" in details[0].shared_indicators
+    assert details[0].relation == "same_site"  # same website checked again, not a "campaign"
 
 
 def test_different_messages_linked_by_payment_id_and_phone():
@@ -39,7 +40,7 @@ def test_different_messages_linked_by_payment_id_and_phone():
     b = make("message", text="Refund approved. Send Rs 10 to lucky@ybl to receive it",
              indicators={"upi_ids": ["lucky@ybl"]})
     related = engine.related_details(b).related
-    assert related[0].report_id == a.id
+    assert related[0].report_id == a.id and related[0].relation == "campaign"
     assert "same UPI payment ID: lucky@ybl" in related[0].shared_indicators
 
 
@@ -55,6 +56,7 @@ def test_same_certificate_linked():
     a = make(target="https://phish-one.com/", checks=tls())
     b = make(target="https://phish-two.net/", checks=tls())
     assert engine.find_related(b) == [a.id]
+    assert engine.related_details(b).related[0].relation == "campaign"  # different sites, same certificate
 
 
 def test_shared_hosting_ip_not_used_as_link():

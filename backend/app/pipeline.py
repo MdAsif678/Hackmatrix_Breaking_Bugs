@@ -22,6 +22,7 @@ from app.analyzers import (
 from app.analyzers.base import Analyzer, error_result
 from app.analyzers.mock import mock_result
 from app.config import settings
+from app.core.safe_fetch import ForbiddenAddressError, UnsafeTargetError, resolve_and_validate
 from app.correlation.engine import find_related, index_report
 from app.risk.engine import NOT_PROOF_OF_SAFETY, classify, compute_coverage, recommendations_for
 from app.schemas import AnalysisReport, CheckName, CheckResult
@@ -151,8 +152,28 @@ async def _finalize(
     return report
 
 
+BLOCKED_MESSAGE = (
+    "Blocked for safety: this address points to a private or internal network (for example this server itself or "
+    "cloud metadata). TrustLens only inspects public websites (SSRF protection)."
+)
+
+
+async def _is_internal(url: str) -> bool:
+    """True if the URL points at a private/internal address. Unresolvable public names are NOT internal."""
+    parts = urlsplit(url)
+    try:
+        await resolve_and_validate(parts.hostname or "", parts.port or (443 if parts.scheme == "https" else 80))
+    except ForbiddenAddressError:
+        return True
+    except UnsafeTargetError:
+        return False  # e.g. domain doesn't resolve: still worth a report (dead/fake domain)
+    return False
+
+
 async def analyze_url(raw: str) -> AnalysisReport:
     input_type, url = normalize_target(raw)
+    if await _is_internal(url):
+        raise InvalidTarget(BLOCKED_MESSAGE)
     checks = await _run_url_checks(url)
     return await _finalize(input_type=input_type, raw_input=raw, normalized_target=url, checks=checks)
 
@@ -164,12 +185,17 @@ async def analyze_message(text: str) -> AnalysisReport:
 
     urls: list[str] = []
     skipped_urls: list[str] = []
+    internal_urls: list[str] = []
     for u in indicators.get("urls", []):
         try:
             _, normalized = normalize_target(u)
         except InvalidTarget:
             continue
         if normalized in urls:
+            continue
+        if await _is_internal(normalized):
+            skipped_urls.append(normalized)
+            internal_urls.append(normalized)
             continue
         if len(urls) < settings.max_message_urls:
             urls.append(normalized)
@@ -180,6 +206,10 @@ async def analyze_message(text: str) -> AnalysisReport:
     checks = [message_check] + [c for group in url_check_groups for c in group]
 
     extra = []
+    if internal_urls:
+        extra.append(f"[pipeline] {len(internal_urls)} link(s) pointing to private/internal addresses were not opened "
+                     "(SSRF protection)")
+    skipped_urls = [u for u in skipped_urls if u not in internal_urls]
     if skipped_urls:
         extra.append(f"[pipeline] Only the first {settings.max_message_urls} URLs were investigated; "
                      f"{len(skipped_urls)} more were not checked")

@@ -102,7 +102,13 @@ The basic versions already work: `RegistryPanel.tsx` and `VerifyPage.tsx`. The v
    contract address into `https://sepolia.etherscan.io/address/<address>`.
 2. **Copy buttons** next to the hashes (`navigator.clipboard.writeText`).
 3. **Verify page:** show the block time (`block_timestamp` is in seconds, so multiply by 1000 for `new Date()`),
-   a big green ✓ / red ✗, and a short explanation: "The fingerprint we recalculated matches the one stored on the blockchain".
+   a big green ✓ / red ✗, and **always show `detail`** (a ready-made plain-English sentence). Handle every `status`:
+   - `verified` → ✓ green
+   - `mismatch` → ✗ "This report was changed after it was sealed"
+   - `untrusted_submitter` → ✗ "Sealed by someone other than TrustLens (fake seal)"
+   - `registered_late` → ✗ "Sealed long after the report was made (possible edited version)"
+   - `not_registered` → grey "Not sealed yet"
+   (Right now the page shows "Hash mismatch" for every ✗ — that's the first thing to fix.)
 4. **Explain to normal users** in 1–2 sentences what "on-chain" means. Keep it friendly.
 
 Run it: `cd frontend && npm run dev`. To see real results, the backend must be running too (see README).

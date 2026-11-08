@@ -95,7 +95,16 @@ show later related ones.
 ## Blockchain integrity — P1 + P4
 
 Only a SHA-256 hash of the canonical report JSON plus the risk level are recorded on-chain (no URLs, messages
-or personal data). Verification recomputes the hash from our stored copy and compares it with the contract.
+or personal data). Verification recomputes the hash from our stored copy and passes only if **all three** hold:
+1. the recomputed hash equals the on-chain hash (otherwise: `mismatch` — the report was edited);
+2. the on-chain record was submitted by TrustLens's official registry wallet (otherwise: `untrusted_submitter` —
+   someone sealed a forged version with their own wallet);
+3. it was sealed within `REGISTRATION_WINDOW_HOURS` (default 24) of the report's creation (otherwise:
+   `registered_late` — an edited version may have been sealed afterwards). Registration of older reports is refused.
+
+The original on-chain record can never be altered or deleted, so the genuine fingerprint always remains as evidence.
+Limitation: an attacker who steals both our database **and** the registry wallet's private key could forge a seal
+within the window; the wallet key must therefore be kept only in the server's `.env`.
 A blockchain record proves a report's integrity and history, not that its content is true.
 
 ## Limitations

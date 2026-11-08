@@ -32,6 +32,10 @@ class UnsafeTargetError(Exception):
     """Raised when a URL or any redirect hop points to a forbidden destination."""
 
 
+class ForbiddenAddressError(UnsafeTargetError):
+    """The target is (or resolves to) a private/internal address: an SSRF attempt or a local address."""
+
+
 @dataclass
 class FetchResult:
     final_url: str
@@ -87,7 +91,7 @@ async def resolve_and_validate(host: str, port: int) -> list[str]:
     if not host:
         raise UnsafeTargetError("URL has no hostname")
     if host.lower() in ("localhost", "localhost.localdomain") or host.lower().endswith(".localhost"):
-        raise UnsafeTargetError("Refusing to inspect localhost")
+        raise ForbiddenAddressError("Refusing to inspect localhost")
     loop = asyncio.get_running_loop()
     try:
         infos = await asyncio.wait_for(
@@ -107,7 +111,7 @@ async def resolve_and_validate(host: str, port: int) -> list[str]:
     bad = [ip for ip in ips if is_forbidden_ip(ip)]
     if bad:
         # Any internal address is a red flag (round-robin rebinding trick), so reject the whole host.
-        raise UnsafeTargetError(f"{host} resolves to a non-public address ({bad[0]}); refusing to connect")
+        raise ForbiddenAddressError(f"{host} resolves to a non-public address ({bad[0]}); refusing to connect")
     ips.sort(key=lambda a: ":" in a)  # IPv4 first: more networks have working IPv4
     return ips
 

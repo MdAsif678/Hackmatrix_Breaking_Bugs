@@ -25,6 +25,9 @@ export default function ReportPage() {
   if (!report) return <p className="text-slate-400">Loading report…</p>
 
   const findingsCount = report.checks.reduce((n, c) => n + c.findings.length, 0)
+  // Earlier/later checks of the SAME website vs DIFFERENT sites/messages sharing details (a possible campaign)
+  const sameSite = related.filter((r) => r.relation === 'same_site')
+  const campaign = related.filter((r) => r.relation !== 'same_site')
   const indicatorEntries = Object.entries(report.extracted_indicators).filter(([, v]) => v.length > 0)
 
   return (
@@ -50,6 +53,34 @@ export default function ReportPage() {
           ))}
         </ul>
       </section>
+
+      {/* Same website checked before / after */}
+      {sameSite.length > 0 && (
+        <section className="rounded-xl border border-sky-900/60 bg-sky-950/10 p-5">
+          <h2 className="font-semibold text-sky-300">
+            This website was checked {sameSite.length} other time{sameSite.length > 1 ? 's' : ''}
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Each check is done fresh, because websites change. Earlier results for comparison:
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {sameSite.map((r) => (
+              <li key={r.report_id}>
+                <Link
+                  to={`/report/${r.report_id}`}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 hover:border-slate-600"
+                >
+                  {r.risk_level && <RiskBadge level={r.risk_level} />}
+                  <span className="min-w-0 flex-1 truncate font-mono text-sm">{r.label ?? r.report_id}</span>
+                  {r.created_at && (
+                    <span className="text-xs text-slate-500">{new Date(r.created_at).toLocaleString()}</span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* AI explanation */}
       {report.explanation && (
@@ -112,15 +143,16 @@ export default function ReportPage() {
       </section>
 
       {/* Related reports (threat correlation) */}
-      {related.length > 0 && (
+      {campaign.length > 0 && (
         <section className="rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/10 p-5">
           <h2 className="font-semibold text-fuchsia-300">Possibly part of the same campaign</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Other reports share infrastructure or contact details with this one. Links are found by exact matching,
-            not guesswork.
+            Different websites or messages share infrastructure or contact details with this one (for example the
+            same server, certificate, phone number or UPI ID), which suggests the same people may be behind them.
+            Links are found by exact matching, not guesswork.
           </p>
           <ul className="mt-3 grid gap-2">
-            {related.map((r) => (
+            {campaign.map((r) => (
               <li key={r.report_id}>
                 <Link
                   to={`/report/${r.report_id}`}

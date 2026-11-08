@@ -143,18 +143,39 @@ def find_related(report: AnalysisReport) -> list[str]:
     return [rid for rid, _ in ranked[:MAX_RELATED]]
 
 
+def _site(report: AnalysisReport) -> str | None:
+    """The registrable domain a URL report is about (None for messages)."""
+    if report.input_type == "message" or not report.normalized_target:
+        return None
+    host = _host(report.normalized_target)
+    return _registrable(host)[1] if host else None
+
+
+def relation(report: AnalysisReport, other: AnalysisReport) -> str:
+    """same_site = the same website checked again; campaign = a different site/message sharing indicators."""
+    mine = _site(report)
+    return "same_site" if mine is not None and mine == _site(other) else "campaign"
+
+
 def related_details(report: AnalysisReport) -> CorrelationResult:
-    """Used by GET /api/correlations/{id}. Computed live, so it also shows reports submitted later."""
-    related = _matches(report)
-    ranked = sorted(related.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:MAX_RELATED]
-    out = []
-    for rid, shared in ranked:
+    """Used by GET /api/correlations/{id}. Computed live, so it also shows reports submitted later.
+
+    Campaign links come first (strongest first), then earlier/later checks of the same site (newest first).
+    """
+    campaign, same_site = [], []
+    for rid, shared in _matches(report).items():
         other = db.get_report(rid)
-        label = None
-        if other is not None:
-            label = "Pasted message" if other.input_type == "message" else (other.normalized_target or other.input)
-        out.append(RelatedReport(
-            report_id=rid, shared_indicators=shared, label=label,
-            risk_level=other.risk_level if other else None, created_at=other.created_at if other else None,
-        ))
-    return CorrelationResult(related=out)
+        if other is None:
+            continue
+        item = RelatedReport(
+            report_id=rid,
+            shared_indicators=sorted(shared),
+            label="Pasted message" if other.input_type == "message" else (other.normalized_target or other.input),
+            risk_level=other.risk_level,
+            created_at=other.created_at,
+            relation=relation(report, other),
+        )
+        (same_site if item.relation == "same_site" else campaign).append(item)
+    campaign.sort(key=lambda r: (-len(r.shared_indicators), r.report_id))
+    same_site.sort(key=lambda r: r.created_at, reverse=True)
+    return CorrelationResult(related=(campaign + same_site)[:MAX_RELATED * 2])

@@ -106,6 +106,7 @@ class VerifyResult(BaseModel):
     chain_status: Optional[str] = None  # on-chain record status: active / disputed / revised
     submitter: Optional[str] = None  # wallet address that registered the report
     explorer_url: Optional[str] = None  # block-explorer link for the registration transaction
+    detail: Optional[str] = None  # plain-English explanation of the result
 
 
 class RelatedReport(BaseModel):
@@ -114,6 +115,9 @@ class RelatedReport(BaseModel):
     label: Optional[str] = None  # target URL or "Pasted message"
     risk_level: Optional[RiskLevel] = None
     created_at: Optional[datetime] = None
+    # "same_site": an earlier/later check of the same website. "campaign": a DIFFERENT site or message that
+    # shares infrastructure or contact details (domain, server, certificate, phone, email, UPI id, text).
+    relation: Literal["same_site", "campaign"] = "campaign"
 
 
 class CorrelationResult(BaseModel):
