@@ -1,0 +1,18 @@
+[
+  {"name": "State Bank of India", "keywords": ["sbi", "onlinesbi"], "official_domains": ["sbi.co.in", "onlinesbi.sbi", "sbi.bank.in"]},
+  {"name": "HDFC Bank", "keywords": ["hdfc", "hdfcbank"], "official_domains": ["hdfcbank.com"]},
+  {"name": "ICICI Bank", "keywords": ["icici", "icicibank"], "official_domains": ["icicibank.com"]},
+  {"name": "Paytm", "keywords": ["paytm"], "official_domains": ["paytm.com"]},
+  {"name": "PhonePe", "keywords": ["phonepe"], "official_domains": ["phonepe.com"]},
+  {"name": "Income Tax India", "keywords": ["incometax", "itr"], "official_domains": ["incometax.gov.in"]},
+  {"name": "India Post", "keywords": ["indiapost"], "official_domains": ["indiapost.gov.in"]},
+  {"name": "PayPal", "keywords": ["paypal"], "official_domains": ["paypal.com"]},
+  {"name": "Google", "keywords": ["google", "gmail"], "official_domains": ["google.com", "gmail.com"]},
+  {"name": "Microsoft", "keywords": ["microsoft", "outlook", "office365"], "official_domains": ["microsoft.com", "live.com", "outlook.com", "office.com"]},
+  {"name": "Apple", "keywords": ["apple", "icloud"], "official_domains": ["apple.com", "icloud.com"]},
+  {"name": "Amazon", "keywords": ["amazon"], "official_domains": ["amazon.com", "amazon.in"]},
+  {"name": "Facebook", "keywords": ["facebook"], "official_domains": ["facebook.com"]},
+  {"name": "Instagram", "keywords": ["instagram"], "official_domains": ["instagram.com"]},
+  {"name": "LinkedIn", "keywords": ["linkedin"], "official_domains": ["linkedin.com"]},
+  {"name": "Netflix", "keywords": ["netflix"], "official_domains": ["netflix.com"]}
+]
