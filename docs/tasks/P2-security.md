@@ -1,4 +1,4 @@
-# P2 — Security Checks: step-by-step guide
+# P2 — Security Checks: step by step guide
 
 ## What you're building (plain words)
 
