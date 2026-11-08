@@ -31,7 +31,7 @@ Judging weights: Cybersecurity 30% · AI 20% · Web3 20% · Technical 20% · UX 
 | Database | **SQLite** (single file `backend/data/app.db`), via `sqlite3` or SQLModel |
 | AI | One LLM provider behind a single wrapper `backend/app/ai/llm.py` (provider + key from `.env`) |
 | Frontend | **React + Vite + TypeScript + Tailwind CSS** |
-| Blockchain | **Solidity**, written & deployed with **Remix + MetaMask** to **Ethereum Sepolia testnet** (Hardhat optional); backend talks to it with `web3.py` |
+| Blockchain | **Solidity 0.8.24** + **Hardhat 2** (`contracts/`): local chain for development, **Ethereum Sepolia testnet** for the demo; backend talks to it with `web3.py` |
 
 ---
 
@@ -45,7 +45,7 @@ inputs/outputs and a step-by-step guide in `docs/tasks/`.
 | **P1 — Lead** | Pipeline & risk engine, SSRF-safe fetching, TLS certificate analysis, LLM wrapper & AI explanations, correlation, blockchain backend (`web3.py`), dashboard, integration, demo | [docs/tasks/P1-lead.md](docs/tasks/P1-lead.md) |
 | **P2 — Security checks** | URL/phishing indicators, DNS & domain age, threat-intel feeds, security headers | [docs/tasks/P2-security.md](docs/tasks/P2-security.md) |
 | **P3 — Scam messages (AI)** | Indicator extraction, scam-pattern rules, sample message dataset, scam-classification prompt | [docs/tasks/P3-ai.md](docs/tasks/P3-ai.md) |
-| **P4 — Web3 & testing** | Smart contract (Remix), Sepolia deployment, registry/verify UI, testing report, demo script | [docs/tasks/P4-web3.md](docs/tasks/P4-web3.md) |
+| **P4 — Web3 & testing** | Sepolia deployment (contract already written by P1), registry/verify UI, testing report, demo script | [docs/tasks/P4-web3.md](docs/tasks/P4-web3.md) |
 
 ```
 /
@@ -87,7 +87,8 @@ inputs/outputs and a step-by-step guide in `docs/tasks/`.
 │       ├── pages/                 (P1) HomePage (submit), ReportPage, HistoryPage
 │       ├── components/            (P1) shared UI: RiskBadge, FindingCard, CheckSection, labels
 │       └── features/registry/     (P4) RegistryPanel ("Register on-chain"), VerifyPage
-├── contracts/                     (P4) ThreatRegistry.sol, ThreatRegistry.abi.json, deployment.json
+├── contracts/                     Hardhat project: contracts/ThreatRegistry.sol + test/ + scripts/deploy.js (P1);
+│                                  ThreatRegistry.abi.json + deployments/<network>.json are written by the deploy script (P4 runs it for Sepolia)
 └── docs/
     ├── architecture.md            (P1, everyone adds their section)
     ├── testing-report.md          (P4, everyone contributes cases)
@@ -232,7 +233,7 @@ The LLM may *explain* the result but must never set or override `risk_level`.
 - **Only the hash + risk level + timestamp go on-chain.** Never raw URLs, messages, emails, phone numbers or personal data.
 - A blockchain record proves a report's **integrity and history**, not that the report is **true**.
 
-Contract `contracts/ThreatRegistry.sol` (minimum interface):
+Contract `contracts/contracts/ThreatRegistry.sol` (implemented + tested; extra helpers: `getHistory`, `verify`, `idOfHash`, `disputeCount`):
 ```solidity
 function submitReport(bytes32 reportHash, string calldata riskLevel) external returns (uint256 id);
 function reviseReport(uint256 id, bytes32 newHash) external;          // keeps revision history
@@ -296,7 +297,19 @@ Everything below already exists and runs (`python -m pytest -q` in `backend/` pa
 - FastAPI app with all §5 endpoints, SQLite storage, parallel pipeline with timeouts, risk engine (§6),
   hashing (§7), rule-based explanation fallback, mock mode.
 - Every module you own exists as a **stub** with a `TODO(Px)` comment and the final function signature.
-  Replace the body; keep the signature. Registry endpoints return **501** until `chain.py` is implemented.
+  Replace the body; keep the signature.
+- **Done by P1 (ready to use):**
+  - `core/safe_fetch.py` — `safe_fetch(url)` → `FetchResult` (final_url, status_code, lower-cased `headers`, `body`,
+    `redirect_chain`, `redirect_statuses`, `resolved_ip`). Raises `UnsafeTargetError` / `httpx` errors — catch them.
+    Also `resolve_and_validate(host, port)`.
+  - `ai/llm.py` — Gemini. `llm_json(system, user, Model)` → validated model or `None`; `untrusted_block(label, text)`
+    to wrap untrusted text; `mask_pii(text)` to hide phones/emails/UPI ids.
+  - `analyzers/tls_analyzer.py`, `ai/explain.py`, `correlation/engine.py` (links reports by domain, cert, IP,
+    email, phone, UPI id, similar text), `registry/chain.py` + the smart contract (works on the local Hardhat chain; needs `.env` values — until then
+    registry endpoints return **501** with the list of what's missing).
+  - `backend/scripts/tamper_report.py <id>` — demo: alters a stored report so verification shows a mismatch.
+- **Correlation reads these keys if present:** dns `data["a_records"]`/`["aaaa_records"]`, any check's `data["ip"]`,
+  message `data["indicators"]` (`emails`, `phones`, `upi_ids`).
 - Frontend: Investigate page (URL + message tabs), Report page, History page, Verify page, Registry panel.
 - `backend/data/brands.json`: starter list of brands + official domains for typosquatting checks (P2 extends).
 - `docs/tasks/`: one step-by-step guide per person — start there.
@@ -338,16 +351,15 @@ Full step-by-step instructions, examples and "done when" checks are in `docs/tas
 
 | Who | Builds (in this order) |
 |---|---|
-| **P1** | `safe_fetch.py` → `llm.py` → `chain.py` (after P4 deploys) → `tls_analyzer.py` → `explain.py` (LLM) → `correlation/engine.py` → integration & merges |
+| **P1** | ✅ `safe_fetch.py` → ✅ `llm.py` → ✅ `tls_analyzer.py` → ✅ `explain.py` → ✅ `correlation/engine.py` → ✅ contract + `chain.py` → integration & merges |
 | **P2** | `url_analyzer.py` (offline string checks) → `dns_analyzer.py` → `threat_intel.py` → `headers_analyzer.py` → redirect checks (after P1's `safe_fetch`) |
 | **P3** | indicator extraction → scam-pattern rules → `data/sample_messages.json` → LLM scam classification (after P1's `llm.py`) |
-| **P4** | MetaMask + Sepolia test ETH → `ThreatRegistry.sol` in Remix → deploy → hand ABI + address to P1 → registry/verify UI → testing report → demo script |
+| **P4** | try it on the local chain → MetaMask + Sepolia test ETH → `npm run deploy:sepolia` → registry/verify UI → testing report → demo script |
 
 **Hand-offs (tell the team in chat when done):**
 - P1 `safe_fetch.py` ready → unblocks P2's `headers_analyzer` and redirect checks
 - P1 `llm.py` ready → unblocks P3's LLM step
-- P4 contract deployed (ABI + address + throwaway wallet key sent privately to P1) → unblocks P1's `chain.py`
-- P1 `chain.py` ready → P4 tests the registry UI against the real chain
+- P4 deploys to Sepolia → shares the contract address (and, privately, the throwaway wallet key) with the team for the live demo
 
 **Target: first full end-to-end flow (submit → report → on-chain → verify) working by Hour 16.**
 

@@ -72,9 +72,20 @@ export interface VerifyResult {
   match: boolean
   tx_hash?: string | null
   block_timestamp?: number | null
-  status: string
+  status: string // "verified" | "mismatch" | "not_registered"
+  chain_status?: string | null // on-chain record: active / disputed / revised
+  submitter?: string | null
+  explorer_url?: string | null // block-explorer link for the registration tx
+}
+
+export interface RelatedReport {
+  report_id: string
+  shared_indicators: string[]
+  label?: string | null
+  risk_level?: RiskLevel | null
+  created_at?: string | null
 }
 
 export interface CorrelationResult {
-  related: { report_id: string; shared_indicators: string[] }[]
+  related: RelatedReport[]
 }

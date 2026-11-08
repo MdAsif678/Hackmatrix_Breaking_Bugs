@@ -4,7 +4,9 @@ You own the hard, tightly connected parts: everything other modules depend on, p
 that need the most security knowledge (SSRF protection and TLS trust). You also merge and integrate everyone's
 work and run the demo.
 
-Already done: repo, schemas, pipeline, risk engine, DB, API, hashing, dashboard, mock mode, tests.
+Already done: repo, schemas, pipeline, risk engine, DB, API, hashing, dashboard, mock mode, tests, and ✅ tasks 1–6
+below (safe_fetch, Gemini llm.py with model fallback, chain.py + the ThreatRegistry contract on a local Hardhat chain,
+tls_analyzer, explain.py, correlation). Remaining: integration, merges, Sepolia demo with P4, docs, demo.
 
 ## Your files
 

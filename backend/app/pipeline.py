@@ -3,6 +3,7 @@
 Submit -> Investigate (analyzers) -> Assess risk (risk engine) -> Explain (AI) -> Correlate -> Save
 """
 import asyncio
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
@@ -21,9 +22,11 @@ from app.analyzers import (
 from app.analyzers.base import Analyzer, error_result
 from app.analyzers.mock import mock_result
 from app.config import settings
-from app.correlation.engine import find_related
+from app.correlation.engine import find_related, index_report
 from app.risk.engine import NOT_PROOF_OF_SAFETY, classify, compute_coverage, recommendations_for
 from app.schemas import AnalysisReport, CheckName, CheckResult
+
+log = logging.getLogger(__name__)
 
 URL_ANALYZERS: list[tuple[CheckName, Analyzer]] = [
     ("url", url_analyzer.analyze),
@@ -61,14 +64,22 @@ def normalize_target(raw: str) -> tuple[str, str]:
     return input_type, normalized
 
 
+def _timeout_for(check: CheckName) -> float:
+    # The message check may call the LLM, which is slower than a network check.
+    # TLS also queries Certificate Transparency + OCSP, which can be slow.
+    extra = {"message": settings.llm_timeout_seconds, "tls": 6.0}.get(check, 0.0)
+    return settings.check_timeout_seconds + extra
+
+
 async def _run_check(check: CheckName, analyze: Analyzer, target: str) -> CheckResult:
     start = time.perf_counter()
+    timeout = _timeout_for(check)
     try:
-        result = await asyncio.wait_for(analyze(target), timeout=settings.check_timeout_seconds)
+        result = await asyncio.wait_for(analyze(target), timeout=timeout)
     except asyncio.TimeoutError:
         result = CheckResult(
             check=check, status="error",
-            limitations=[f"{check} check timed out after {settings.check_timeout_seconds:g}s"],
+            limitations=[f"{check} check timed out after {timeout:g}s"],
         )
     except Exception as exc:  # analyzers should never raise, but be safe
         result = error_result(check, exc)
@@ -122,7 +133,9 @@ async def _finalize(
     )
 
     try:
-        report.explanation = await explain(report)
+        report.explanation = await asyncio.wait_for(explain(report), timeout=settings.llm_timeout_seconds + 2)
+    except asyncio.TimeoutError:
+        report.limitations.append("[ai] Explanation timed out")
     except Exception as exc:
         report.limitations.append(f"[ai] Explanation unavailable: {type(exc).__name__}")
     try:
@@ -131,6 +144,10 @@ async def _finalize(
         report.limitations.append(f"[correlation] Correlation unavailable: {type(exc).__name__}")
 
     db.save_report(report)
+    try:
+        index_report(report)
+    except Exception as exc:  # correlation must never break an analysis
+        log.warning("Could not index report %s for correlation: %s", report.id, exc)
     return report
 
 

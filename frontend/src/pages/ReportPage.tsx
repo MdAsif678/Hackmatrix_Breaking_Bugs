@@ -6,16 +6,19 @@ import { CheckSection } from '../components/CheckSection'
 import { RISK_META } from '../components/labels'
 import { RiskBadge } from '../components/RiskBadge'
 import { RegistryPanel } from '../features/registry/RegistryPanel'
-import type { AnalysisReport } from '../types'
+import type { AnalysisReport, RelatedReport } from '../types'
 
 export default function ReportPage() {
   const { id } = useParams()
   const [report, setReport] = useState<AnalysisReport | null>(null)
+  const [related, setRelated] = useState<RelatedReport[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
     api.getReport(id).then(setReport).catch((e: Error) => setError(e.message))
+    // Correlations are computed live, so this also shows reports submitted after this one.
+    api.correlations(id).then((r) => setRelated(r.related)).catch(() => setRelated([]))
   }, [id])
 
   if (error) return <p className="text-red-300">Could not load report: {error}</p>
@@ -108,14 +111,29 @@ export default function ReportPage() {
         ))}
       </section>
 
-      {/* Related reports */}
-      {report.related_report_ids.length > 0 && (
-        <section className="rounded-xl border border-slate-800 p-5">
-          <h2 className="font-semibold">Related reports</h2>
-          <ul className="mt-2 grid gap-1 text-sm">
-            {report.related_report_ids.map((rid) => (
-              <li key={rid}>
-                <Link to={`/report/${rid}`} className="font-mono text-sky-400 hover:underline">{rid}</Link>
+      {/* Related reports (threat correlation) */}
+      {related.length > 0 && (
+        <section className="rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/10 p-5">
+          <h2 className="font-semibold text-fuchsia-300">Possibly part of the same campaign</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Other reports share infrastructure or contact details with this one. Links are found by exact matching,
+            not guesswork.
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {related.map((r) => (
+              <li key={r.report_id}>
+                <Link
+                  to={`/report/${r.report_id}`}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 hover:border-slate-600"
+                >
+                  {r.risk_level && <RiskBadge level={r.risk_level} />}
+                  <span className="min-w-0 flex-1 truncate font-mono text-sm">{r.label ?? r.report_id}</span>
+                  <span className="flex flex-wrap gap-1">
+                    {r.shared_indicators.map((s) => (
+                      <span key={s} className="rounded bg-fuchsia-500/15 px-2 py-0.5 text-xs text-fuchsia-200">{s}</span>
+                    ))}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

@@ -1,0 +1,68 @@
+{
+  "_about": "Certificate Authorities that major browser root programs have distrusted. Matched against the certificate issuer organisation (O). 'issued_after' means only certificates issued after that date are affected. Add entries only from authoritative sources (Chrome Root Program, Mozilla CA/Incident reports, Apple). Owner: P1.",
+  "authorities": [
+    {
+      "name": "DigiNotar",
+      "issuer_orgs": ["DigiNotar B.V."],
+      "issued_after": null,
+      "reason": "CA compromise; fraudulent certificates issued for Google and others (2011)",
+      "source": "https://blog.mozilla.org/security/2011/09/02/diginotar-removal-follow-up/"
+    },
+    {
+      "name": "Symantec legacy PKI (Symantec, VeriSign, GeoTrust, Thawte, RapidSSL)",
+      "issuer_orgs": ["Symantec Corporation", "VeriSign, Inc.", "GeoTrust Inc.", "thawte, Inc."],
+      "issued_after": null,
+      "reason": "Repeated mis-issuance; distrusted by Chrome 70 and Firefox (2018). Brands now issued by DigiCert under new roots are not affected.",
+      "source": "https://security.googleblog.com/2017/09/chromes-plan-to-distrust-symantec.html"
+    },
+    {
+      "name": "WoSign / StartCom",
+      "issuer_orgs": ["WoSign CA Limited", "StartCom Ltd."],
+      "issued_after": null,
+      "reason": "Backdated certificates and undisclosed acquisition (2016)",
+      "source": "https://wiki.mozilla.org/CA:WoSign_Issues"
+    },
+    {
+      "name": "Camerfirma",
+      "issuer_orgs": ["AC Camerfirma S.A."],
+      "issued_after": null,
+      "reason": "Long-running compliance failures; distrusted by Chrome and Mozilla (2021)",
+      "source": "https://wiki.mozilla.org/CA/Camerfirma_Issues"
+    },
+    {
+      "name": "TrustCor",
+      "issuer_orgs": ["TrustCor Systems S. de R.L."],
+      "issued_after": null,
+      "reason": "Concerns about ties to surveillance-related entities; removed by Mozilla, Chrome and Apple (2022-2023)",
+      "source": "https://groups.google.com/a/mozilla.org/g/dev-security-policy/c/oxX69KFvsm4"
+    },
+    {
+      "name": "E-Tugra",
+      "issuer_orgs": ["E-Tugra EBG A.S.", "E-Tugra EBG Bilisim Teknolojileri ve Hizmetleri A.S."],
+      "issued_after": null,
+      "reason": "Security incident exposing internal systems; removed by Mozilla (2023)",
+      "source": "https://bugzilla.mozilla.org/show_bug.cgi?id=1801345"
+    },
+    {
+      "name": "Entrust",
+      "issuer_orgs": ["Entrust, Inc.", "Entrust Limited"],
+      "issued_after": "2024-11-11",
+      "reason": "Pattern of compliance failures; Chrome distrusts TLS certificates issued after 11 Nov 2024",
+      "source": "https://security.googleblog.com/2024/06/sustaining-digital-certificate-security.html"
+    },
+    {
+      "name": "Chunghwa Telecom",
+      "issuer_orgs": ["Chunghwa Telecom Co., Ltd."],
+      "issued_after": "2025-07-31",
+      "reason": "Compliance failures; Chrome distrusts TLS certificates issued after 31 Jul 2025",
+      "source": "https://security.googleblog.com/2025/05/sustaining-digital-certificate-security-chrome-root-store-changes.html"
+    },
+    {
+      "name": "NetLock",
+      "issuer_orgs": ["NETLOCK Ltd."],
+      "issued_after": "2025-07-31",
+      "reason": "Compliance failures; Chrome distrusts TLS certificates issued after 31 Jul 2025",
+      "source": "https://security.googleblog.com/2025/05/sustaining-digital-certificate-security-chrome-root-store-changes.html"
+    }
+  ]
+}

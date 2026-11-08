@@ -102,12 +102,18 @@ class VerifyResult(BaseModel):
     match: bool
     tx_hash: Optional[str] = None
     block_timestamp: Optional[int] = None
-    status: str  # e.g. "verified", "mismatch", "not_registered"
+    status: str  # "verified", "mismatch" or "not_registered"
+    chain_status: Optional[str] = None  # on-chain record status: active / disputed / revised
+    submitter: Optional[str] = None  # wallet address that registered the report
+    explorer_url: Optional[str] = None  # block-explorer link for the registration transaction
 
 
 class RelatedReport(BaseModel):
     report_id: str
-    shared_indicators: list[str]
+    shared_indicators: list[str]  # e.g. "same domain: paypa1.com", "same UPI payment ID: x@ybl"
+    label: Optional[str] = None  # target URL or "Pasted message"
+    risk_level: Optional[RiskLevel] = None
+    created_at: Optional[datetime] = None
 
 
 class CorrelationResult(BaseModel):

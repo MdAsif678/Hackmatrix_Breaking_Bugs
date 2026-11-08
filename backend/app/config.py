@@ -15,10 +15,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # AI (P3)
+    # AI (Gemini) — wrapper in ai/llm.py
     llm_provider: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
+    llm_timeout_seconds: float = 20.0
 
     # Threat intel (P2)
     google_safe_browsing_api_key: str = ""

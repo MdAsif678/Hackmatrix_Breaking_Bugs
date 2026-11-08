@@ -111,7 +111,8 @@ Put useful facts in `data`: `host`, `registered_domain`, `subdomain`, `tld`, `is
 
 ## Step 2 — `dns_analyzer.py`
 
-1. Look up records with `dnspython`:
+1. Look up records with `dnspython` (use these exact `data` keys — P1's correlation reads them:
+   `a_records`, `aaaa_records`, `mx_records`, `ns_records`):
    ```python
    import dns.asyncresolver
    answers = await dns.asyncresolver.resolve(registered_domain, "A")
@@ -155,8 +156,9 @@ Read keys like this: `from app.config import settings` → `settings.urlhaus_aut
 
 ## Step 4 — `headers_analyzer.py` (website security settings)
 
-You need P1's `safe_fetch` to download the page safely. While it isn't ready, write the logic as a
-plain function and test it with fake headers:
+✅ P1's `safe_fetch` is **ready**. It downloads the page safely and returns `.final_url`, `.status_code`,
+`.headers` (names lower-cased, e.g. `resp.headers.get("strict-transport-security")`), `.body`, `.redirect_chain`.
+Write the logic as a plain function first and test it with fake headers:
 
 ```python
 def check_headers(url: str, headers: dict[str, str], body: str) -> list[Finding]: ...
@@ -175,7 +177,7 @@ def check_headers(url: str, headers: dict[str, str], body: str) -> list[Finding]
 These are **configuration weaknesses, not phishing proof**, so keep severities low. Add `impact` and
 `recommendation` text to each one. The judges asked for both.
 
-Once `safe_fetch` exists:
+Then call it from `analyze()` (catch `UnsafeTargetError` and `httpx.HTTPError` → add a limitation):
 ```python
 from app.core.safe_fetch import safe_fetch
 resp = await safe_fetch(target)
@@ -185,7 +187,7 @@ findings = check_headers(resp.final_url, resp.headers, resp.body.decode(errors="
 
 ✅ **Done when:** `github.com` gives few or no findings, and `http://neverssl.com` gives `headers.no_https_redirect`.
 
-## Step 5 — Redirect checks (after `safe_fetch` is ready)
+## Step 5 — Redirect checks (`safe_fetch` is ready)
 
 In `url_analyzer.py`, call `safe_fetch(target)` and read `resp.redirect_chain`. If the final registered domain
 differs from the starting one → `url.cross_domain_redirect` (medium). Put the chain in `data["redirect_chain"]`.

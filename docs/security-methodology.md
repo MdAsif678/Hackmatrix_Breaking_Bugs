@@ -1,16 +1,106 @@
 # Security Methodology (Owners: P1 + P2 + P3)
 
-## Safe URL inspection (SSRF protection)
+## Safe URL inspection (SSRF protection) — P1
 
-## Phishing indicators & how each is detected
+Our server visits URLs that strangers submit, so it must not become a tool for attacking our own
+network (Server-Side Request Forgery). All outbound requests to user-supplied URLs go through
+`backend/app/core/safe_fetch.py`:
 
-## TLS / certificate trust checks
+| Protection | How |
+|---|---|
+| Scheme / port allow-list | Only `http`/`https` on ports 80/443. `file:`, `ftp:`, `javascript:`, custom ports rejected |
+| Internal address blocking | Hostname is resolved; **every** resolved IP must be public. Loopback, private (RFC 1918), link-local (incl. cloud metadata `169.254.169.254`), CGNAT, multicast, reserved and unspecified ranges are rejected, including IPv4-mapped / 6to4 / Teredo / NAT64 IPv6 forms. Because the *resolved* address is checked, encodings like `0x7f000001`, `2130706433` or `127.1` are caught |
+| DNS-rebinding defence | We connect to the exact IP we validated; the real hostname is kept in the `Host` header and TLS SNI |
+| Redirect validation | Redirects are followed manually (max 5) and every hop is re-validated |
+| Resource limits | Connect timeout 3 s, total per-check timeout, body capped at 1 MB, max 2 IPs tried |
+| No execution | No JavaScript execution, no file downloads to disk, credentials in URLs are stripped |
 
-## Threat-intelligence sources
+The TLS analyzer reuses the same `resolve_and_validate()` before opening raw TLS connections, and
+certificate-provided URLs (OCSP, CRL, issuer certificate) are fetched through `safe_fetch` too.
 
-## AI safety (prompt injection, evidence grounding, privacy)
+Tests: `backend/tests/test_safe_fetch.py` (localhost variants, metadata IP, encoded IPs, redirect to
+internal address, too many redirects, body cap, IP pinning).
 
-## Risk classification rules
-See AGENTS.md §6.
+## Phishing indicators & how each is detected — P2
+
+<!-- one line per url./dns./threat_intel./headers. finding: what it is, why it matters -->
+
+## TLS / certificate trust checks — P1
+
+Implemented in `backend/app/analyzers/tls_analyzer.py` using passive TLS handshakes only.
+
+1. **Verified handshake** against the Mozilla root store (`certifi`) to learn whether browsers would trust the site.
+2. **Unverified handshake** to still read the certificate when it is invalid (also allows legacy TLS so we can *report* it).
+
+| Finding | Severity | Basis |
+|---|---|---|
+| `tls.expired` / `tls.not_yet_valid` | high | certificate validity dates |
+| `tls.hostname_mismatch` | high | SAN / CN matching (single-label wildcards) |
+| `tls.self_signed` | high | issuer = subject and not trusted |
+| `tls.untrusted_issuer` / `tls.incomplete_chain` / `tls.invalid_ca` | high / medium / high | OpenSSL verification error |
+| `tls.revoked` | critical | OCSP, falling back to CRL (CRL signature verified with the issuer certificate) |
+| `tls.distrusted_ca` | critical | issuer matched against `backend/data/distrusted_cas.json` (browser root-program decisions, with sources and issuance-date cut-offs, e.g. Entrust after 2024-11-11) |
+| `tls.weak_key` / `tls.weak_signature` / `tls.old_protocol` | high / medium / medium | key size, SHA-1/MD5, TLS ≤ 1.1 |
+| `tls.no_sct` | medium | publicly-trusted certificate without embedded Certificate Transparency SCTs |
+| `tls.ct_new_domain` / `tls.ct_young_domain` | medium / low | first certificate for the domain logged < 7 / < 30 days ago (crt.sh) |
+| `tls.valid_not_proof` | info | **A valid certificate is never treated as evidence of safety** |
+
+**Distinguishing configuration problems from compromised trust:** expiry, mismatch and weak keys are
+configuration issues; `tls.distrusted_ca` and `tls.revoked` indicate the trust chain itself can no longer
+be relied on. We do **not** claim to detect a CA's internal key-generation weakness from a URL — we only
+match CAs that authoritative root programs have publicly distrusted.
+
+Certificate Transparency: crt.sh for full history; when it is unavailable we fall back to Cert Spotter
+(current certificates only, so no "new domain" conclusion is drawn from it).
+
+## Threat-intelligence sources — P2
+
+<!-- URLhaus, OpenPhish, ... : what is queried, caching, what counts as authoritative -->
+
+## AI safety (prompt injection, evidence grounding, privacy) — P1 + P3
+
+**Shared AI layer (P1, `backend/app/ai/llm.py`, Google Gemini):**
+- Untrusted text (messages, finding evidence) is wrapped by `untrusted_block()` in a delimiter with a random
+  suffix, so the content cannot "close" the block and inject instructions. The system prompt always includes a
+  rule to treat that content as data and to ignore instructions inside it.
+- Replies must be JSON and are validated with Pydantic; anything else is discarded (`None`) and the
+  rule-based result is used.
+- `mask_pii()` hides phone numbers, emails and UPI ids before text is sent to the AI provider.
+- The AI never decides the risk level (deterministic rules do, see below).
+
+**Evidence-grounded explanations (P1, `backend/app/ai/explain.py`):** the AI only receives our findings;
+every bullet must cite a real finding id (`[tls.expired] …`) or it is dropped; answers that call a site
+"safe/secure/legitimate" are rejected and replaced by the rule-based explanation.
+
+**Scam message analysis (P3):** <!-- rules + AI tactics, quote verification, urgency is never enough alone -->
+
+## Risk classification rules — P1
+
+Deterministic, applied in order (`backend/app/risk/engine.py`):
+1. **Confirmed Malicious** — any match in a trusted threat-intelligence feed.
+2. **Inconclusive** — fewer than 50% of checks completed and no high/critical finding.
+3. **High Risk** — ≥ 1 critical finding, or ≥ 2 high findings.
+4. **Suspicious** — 1 high finding, or ≥ 2 medium findings.
+5. **Low Risk** — otherwise ("no significant indicators in the available checks", never "safe").
+
+Every report lists its evidence coverage, the source of each finding, and all limitations / unavailable checks.
+
+## Threat correlation — P1
+
+`backend/app/correlation/engine.py` links reports by **exact** matches of: registrable domain, TLS certificate
+fingerprint, server IP (ignored once ≥ 5 different domains share it — CDN/shared hosting), email, phone number,
+UPI id, and near-identical message text (≥ 80% similarity). Links are computed live, so earlier reports also
+show later related ones.
+
+## Blockchain integrity — P1 + P4
+
+Only a SHA-256 hash of the canonical report JSON plus the risk level are recorded on-chain (no URLs, messages
+or personal data). Verification recomputes the hash from our stored copy and compares it with the contract.
+A blockchain record proves a report's integrity and history, not that its content is true.
 
 ## Limitations
+
+- Passive checks only; we never exploit or scan for vulnerabilities.
+- Absence of known threats is not proof of safety; new phishing sites may not be in any feed yet.
+- Revocation status depends on the CA publishing OCSP/CRL; CT history depends on crt.sh availability.
+- AI output can be wrong; it is constrained to explaining evidence and never sets the verdict.

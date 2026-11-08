@@ -61,6 +61,8 @@ async def registry_submit(report_id: str) -> ChainRecord:
         record = await run_in_threadpool(chain.submit, report)
     except NotImplementedError as exc:
         raise HTTPException(status_code=501, detail=str(exc))
+    except chain.RegistryError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
     report.chain = record
     db.save_report(report)
     return record
@@ -73,6 +75,8 @@ async def registry_verify(report_id: str) -> VerifyResult:
         return await run_in_threadpool(chain.verify, report)
     except NotImplementedError as exc:
         raise HTTPException(status_code=501, detail=str(exc))
+    except chain.RegistryError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @router.get("/correlations/{report_id}", response_model=CorrelationResult)

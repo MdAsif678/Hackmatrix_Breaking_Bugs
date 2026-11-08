@@ -60,11 +60,23 @@ npm run dev
 
 App: http://localhost:5173 (calls to `/api` are proxied to the backend)
 
+### Local blockchain (optional, for the "Register on-chain" button)
+
+```bash
+cd contracts && npm install
+npm run chain            # terminal 3: local blockchain, keep it running
+npm run deploy:local     # terminal 4: deploys ThreatRegistry, prints its address
+```
+Then in `.env`: `SEPOLIA_RPC_URL=http://127.0.0.1:8545`, `REGISTRY_CONTRACT_ADDRESS=<printed address>`, and
+`REGISTRY_PRIVATE_KEY=` Hardhat's public test key shown in `.env.example`. Restart the backend.
+For the public Sepolia testnet see [contracts/README.md](contracts/README.md).
+
 ### Tests
 
 ```bash
 cd backend && python -m pytest -q
 cd frontend && npm run build && npm run lint
+cd contracts && npm test
 ```
 
 ### Run one analyzer on its own
@@ -88,10 +100,11 @@ Each person has a step-by-step guide in [docs/tasks/](docs/tasks/).
 | Module | Owner | Status |
 |---|---|---|
 | Foundation, pipeline, risk engine, dashboard, hashing | P1 | ✅ working |
-| SSRF-safe fetch, TLS analysis, LLM wrapper, AI explanation, correlation, web3.py backend | P1 | ⏳ stubs (rule-based explanation fallback works) |
+| SSRF-safe fetch, TLS analysis, Gemini wrapper, AI explanation, correlation, web3.py backend | P1 | ✅ working (AI needs `LLM_API_KEY`; chain needs P4's deployment) |
 | URL/phishing, DNS & domain age, threat intel, security headers | P2 | ⏳ stubs |
 | Scam message analysis (indicators, rules, LLM classification) | P3 | ⏳ stub (basic URL extraction works) |
-| Smart contract (Remix → Sepolia), registry/verify UI, testing report, demo script | P4 | ⏳ basic UI done |
+| Smart contract + local chain + register/verify/tamper flow | P1 | ✅ working (6 contract tests) |
+| Sepolia deployment, registry/verify UI polish, testing report, demo script | P4 | ⏳ basic UI done |
 
 ## Deliverables checklist
 
