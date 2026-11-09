@@ -531,7 +531,7 @@ async def analyze(target: str) -> CheckResult:
         try:
             ips = await resolve_and_validate(host, 443)
         except UnsafeTargetError as exc:
-            return CheckResult(check="tls", status="error", limitations=[str(exc)])
+            return CheckResult(check="tls", status="error", limitations=[f"Certificate not checked: {exc}."])
 
         ct_domain = registrable_domain(host)
         ct_task = asyncio.create_task(_ct_lookup(ct_domain))
@@ -551,12 +551,14 @@ async def analyze(target: str) -> CheckResult:
         except ConnectionError as exc:
             ct_task.cancel()
             return CheckResult(check="tls", status="error",
-                               limitations=[f"The site could not be reached on port 443 from this server ({exc})."])
+                               limitations=["Certificate not checked: the site could not be reached on its secure "
+                                            "(HTTPS) port from our server. It may be offline or blocking us."])
 
         if hs.der is None:
             ct_task.cancel()
             return CheckResult(check="tls", status="error",
-                               limitations=[f"TLS handshake failed: {hs.handshake_error or 'unknown error'}"])
+                               limitations=["Certificate not checked: the site answered but a secure connection could "
+                                            "not be set up, so its certificate could not be read."])
 
         cert = x509.load_der_x509_certificate(hs.der)
         findings, data = _assess(host, hs, cert)

@@ -56,6 +56,19 @@ _REDIRECT_CODES = {301, 302, 303, 307, 308}
 _NAT64_PREFIXES = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
 
 
+def describe_fetch_error(exc: BaseException) -> str:
+    """One plain-English reason why a website could not be reached (shown to users in reports)."""
+    if isinstance(exc, UnsafeTargetError):
+        return str(exc)
+    if isinstance(exc, httpx.TimeoutException):
+        return "the website did not answer in time"
+    if isinstance(exc, httpx.ConnectError):
+        return "the website refused the connection or is offline"
+    if isinstance(exc, httpx.HTTPError):
+        return "the connection to the website failed"
+    return f"an unexpected error occurred ({type(exc).__name__})"
+
+
 # ---------------------------------------------------------------- IP validation
 
 
@@ -98,8 +111,13 @@ async def resolve_and_validate(host: str, port: int) -> list[str]:
             loop.getaddrinfo(host, port, type=socket.SOCK_STREAM),
             timeout=min(5.0, settings.check_timeout_seconds),
         )
-    except (socket.gaierror, asyncio.TimeoutError) as exc:
-        raise UnsafeTargetError(f"Could not resolve {host}: {exc.__class__.__name__}") from exc
+    except socket.gaierror as exc:
+        raise UnsafeTargetError(
+            f"{host} does not exist: its address does not lead to any server (the domain may never have existed "
+            "or may have been taken down)"
+        ) from exc
+    except asyncio.TimeoutError as exc:
+        raise UnsafeTargetError(f"Looking up {host} took too long, so the site could not be reached") from exc
 
     ips: list[str] = []
     for family, *_rest, sockaddr in infos:
@@ -107,7 +125,7 @@ async def resolve_and_validate(host: str, port: int) -> list[str]:
         if ip not in ips:
             ips.append(ip)
     if not ips:
-        raise UnsafeTargetError(f"{host} did not resolve to any address")
+        raise UnsafeTargetError(f"{host} does not exist: its address does not lead to any server")
     bad = [ip for ip in ips if is_forbidden_ip(ip)]
     if bad:
         # Any internal address is a red flag (round-robin rebinding trick), so reject the whole host.

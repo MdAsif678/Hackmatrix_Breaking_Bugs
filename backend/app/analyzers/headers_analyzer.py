@@ -169,7 +169,9 @@ async def analyze(target: str) -> CheckResult:
             }
         except Exception as exc:  # unreachable, blocked by the SSRF guard, timeout...
             status = "error"
-            limitations.append(f"Website could not be fetched, headers not checked: {type(exc).__name__}: {exc}")
+            from app.core.safe_fetch import describe_fetch_error
+
+            limitations.append(f"Security settings not checked: {describe_fetch_error(exc)}.")
 
         return CheckResult(
             check="headers",

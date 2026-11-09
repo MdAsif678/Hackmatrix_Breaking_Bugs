@@ -537,7 +537,9 @@ async def analyze(target: str) -> CheckResult:
                     )
                 )
         except Exception as exc:  # site unreachable, blocked by SSRF guard, timeout...
-            limitations.append(f"Redirect check unavailable: {type(exc).__name__}")
+            from app.core.safe_fetch import describe_fetch_error
+
+            limitations.append(f"Redirects not checked: {describe_fetch_error(exc)}.")
 
         return CheckResult(
             check="url",

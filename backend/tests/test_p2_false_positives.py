@@ -90,7 +90,7 @@ def test_redirect_to_unrelated_site_flagged(monkeypatch):
 
 def test_redirect_failure_is_reported_not_hidden(no_network):
     result = run(url_analyzer.analyze("https://example.com/"))
-    assert any("Redirect check unavailable" in lim for lim in result.limitations)
+    assert any("Redirects not checked" in lim for lim in result.limitations)
 
 
 def test_headers_unreachable_site_is_error_not_ok(no_network):
