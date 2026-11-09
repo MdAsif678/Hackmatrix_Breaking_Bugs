@@ -1,5 +1,6 @@
 // The checker: paste a link or a message. Owner: P1.
-import { useState, type FormEvent } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { Arrow } from '../components/Brand'
@@ -9,6 +10,29 @@ type Mode = 'url' | 'message'
 const URL_EXAMPLES = ['github.com', 'expired-rsa-dv.ssl.com', 'revoked-rsa-dv.ssl.com', 'paypa1-secure-login.com']
 const MESSAGE_EXAMPLE =
   'Dear customer, your SBI account KYC expires today. Update now at http://sbi-kyc-verify.example/login or your account will be blocked. Share the OTP sent to you to complete verification.'
+
+const ease = [0.22, 1, 0.36, 1] as const
+
+/** Animates its own height to fit whatever is inside, so swapping the form does not make the page jump. */
+function AutoHeight({ children }: { children: ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState<number | 'auto'>('auto')
+  useEffect(() => {
+    const el = inner.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setHeight(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <motion.div className="-m-1 overflow-hidden" animate={{ height }} transition={{ duration: 0.4, ease }}>
+      {/* 4px of room so the focus ring is not clipped */}
+      <div ref={inner} className="p-1">
+        {children}
+      </div>
+    </motion.div>
+  )
+}
 
 const STEPS = ['Lookalike names', 'Domain age', 'Known phishing lists', 'Certificate', 'Security settings', 'Explanation']
 
@@ -65,7 +89,7 @@ export default function CheckPage() {
           Paste what you received. TrustLens runs five checks and explains what it found.
         </p>
 
-        <div className="mt-8 inline-flex rounded-md border border-line p-1" role="tablist" aria-label="What to check">
+        <div className="mt-8 inline-flex isolate rounded-full border border-line p-1" role="tablist" aria-label="What to check">
           {(['url', 'message'] as const).map((m) => (
             <button
               key={m}
@@ -76,16 +100,37 @@ export default function CheckPage() {
                 setMode(m)
                 setError(null)
               }}
-              className={`h-9 rounded-sm px-4 text-[15px] font-medium transition-colors ${
-                mode === m ? 'bg-ink text-ground' : 'text-muted hover:text-ink'
-              }`}
+              className="group relative h-9 rounded-full px-4 text-[15px] font-medium"
             >
-              {m === 'url' ? 'Link or website' : 'Message or email'}
+              {/* One pill that slides between the two options */}
+              {mode === m && (
+                <motion.span
+                  layoutId="check-mode-pill"
+                  className="absolute inset-0 rounded-full bg-ink"
+                  transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                />
+              )}
+              {/* White text in "difference" mode: dark exactly where the pill is under it, light elsewhere, even mid-slide */}
+              <span
+                className={`relative text-white mix-blend-difference transition-opacity duration-300 ${
+                  mode === m ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'
+                }`}
+              >
+                {m === 'url' ? 'Link or website' : 'Message or email'}
+              </span>
             </button>
           ))}
         </div>
 
         <form onSubmit={onSubmit} className="mt-6" noValidate>
+          <AutoHeight>
+          <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease } }}
+            exit={{ opacity: 0, y: -6, transition: { duration: 0.16, ease: 'easeIn' } }}
+          >
           {mode === 'url' ? (
             <>
               <label htmlFor="target" className="t-label block">
@@ -130,7 +175,7 @@ export default function CheckPage() {
                 placeholder="Paste the SMS, WhatsApp message or email here"
                 rows={7}
                 maxLength={10000}
-                className="field mt-2 p-4 leading-relaxed"
+                className="field mt-2 resize-none p-4 leading-relaxed"
                 aria-invalid={!!error}
                 aria-describedby={error ? 'target-error' : undefined}
               />
@@ -139,6 +184,9 @@ export default function CheckPage() {
               </button>
             </>
           )}
+          </motion.div>
+          </AnimatePresence>
+          </AutoHeight>
 
           {error && (
             <p id="target-error" className="mt-3 text-[14px] text-risk-malicious">

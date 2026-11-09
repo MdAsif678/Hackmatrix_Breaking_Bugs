@@ -1,28 +1,57 @@
 // Landing page: what TrustLens does, shown with the product itself. Owner: P1.
 // Kind: software (security tool). One accent (blue) on a neutral dark ground, Geist, sharp radius.
-// Motion: hero entrance once on load, one hero loop (pausable), the statement moment, diagram pulses on hover.
-import { useState, type CSSProperties, type ReactNode } from 'react'
+// Motion, in order of appearance: intro loader (first visit), the lens field behind the hero, headline words rising,
+// a pinned scene where scrolling runs the five checks, a marquee tied to the scroll, sections settling in as they
+// arrive, the statement lighting up, a wordmark rising at the end. Smooth scrolling via Lenis.
+// Everything degrades to a still, readable page under prefers-reduced-motion.
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from 'motion/react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Arrow, Logo } from '../components/Brand'
 import { ChecksDiagram } from '../components/landing/ChecksDiagram'
+import { DemoWindow } from '../components/landing/DemoWindow'
 import { BlockedVisual, CampaignVisual, ExplainVisual, MessageVisual } from '../components/landing/FeatureVisuals'
-import { HeroWindow } from '../components/landing/HeroWindow'
 import { ProductFrame } from '../components/landing/ProductFrame'
+import { TraceCurve } from '../components/landing/ScrollTrace'
 import { Statement } from '../components/landing/Statement'
+import { LensField } from '../components/motion/LensField'
+import { Preloader } from '../components/motion/Preloader'
+import { ease, Magnetic, Reveal, RevealWords, spotlight } from '../components/motion/Reveal'
+import { useSmoothScroll } from '../components/motion/smooth'
 
 const NAV = [
-  { href: '#product', label: 'Product' },
+  { href: '#demo', label: 'How it works' },
   { href: '#checks', label: 'Checks' },
   { href: '#registry', label: 'Registry' },
   { href: '#faq', label: 'FAQ' },
 ]
 
-const delay = (ms: number): CSSProperties => ({ animationDelay: `${ms}ms` })
-
-function LandingNav() {
+function LandingNav({ ready }: { ready: boolean }) {
   const [open, setOpen] = useState(false)
+  const [solid, setSolid] = useState(false)
+  const { scrollY } = useScroll()
+  useMotionValueEvent(scrollY, 'change', (v) => setSolid(v > 40))
+
   return (
-    <header className="fixed inset-x-0 top-0 z-20 h-[var(--nav)] border-b border-line bg-ground">
+    <motion.header
+      className={`fixed inset-x-0 top-0 z-20 h-[var(--nav)] border-b transition-[background-color,border-color] duration-300 ${
+        open
+          ? 'border-line bg-ground' // no blur here: backdrop-filter would trap the fixed menu inside the header
+          : solid
+            ? 'border-line bg-ground/80 backdrop-blur-md'
+            : 'border-transparent bg-transparent'
+      }`}
+      initial={{ opacity: 0, y: -12 }}
+      animate={ready ? { opacity: 1, y: 0 } : undefined}
+      transition={{ duration: 0.8, ease, delay: 0.5 }}
+    >
       <div className="wrap flex h-full items-center gap-10">
         <Logo />
         <nav className="hidden items-center gap-7 md:flex" aria-label="Main">
@@ -56,85 +85,228 @@ function LandingNav() {
           </button>
         </div>
       </div>
-      {open && (
-        <div className="fixed inset-x-0 bottom-0 top-[var(--nav)] bg-ground md:hidden" onClick={() => setOpen(false)}>
-          <nav className="wrap flex flex-col pt-4" aria-label="Menu">
-            {NAV.map((n) => (
-              <a key={n.href} href={n.href} className="flex h-14 items-center border-b border-line text-[18px]">
-                {n.label}
-              </a>
-            ))}
-            <Link to="/history" className="flex h-14 items-center border-b border-line text-[18px]">
-              History
-            </Link>
-            <Link to="/check" className="btn btn-primary mt-6 w-full">
-              Check a link
-            </Link>
-          </nav>
-        </div>
-      )}
-    </header>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="fixed inset-x-0 bottom-0 top-[var(--nav)] bg-ground md:hidden"
+            onClick={() => setOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <nav className="wrap flex flex-col pt-4" aria-label="Menu">
+              {[...NAV.map((n) => ({ ...n, route: false })), { href: '/history', label: 'History', route: true }].map((n, i) => (
+                <motion.div
+                  key={n.href}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease, delay: 0.04 * i }}
+                >
+                  {n.route ? (
+                    <Link to={n.href} className="flex h-14 items-center border-b border-line text-[18px]">
+                      {n.label}
+                    </Link>
+                  ) : (
+                    <a href={n.href} className="flex h-14 items-center border-b border-line text-[18px]">
+                      {n.label}
+                    </a>
+                  )}
+                </motion.div>
+              ))}
+              <Link to="/check" className="btn btn-primary mt-6 w-full">
+                Check a link
+              </Link>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.header>
   )
 }
 
-function Hero() {
+const HERO_LINES = ['Scam checks', 'for links', 'and messages']
+
+function Hero({ ready }: { ready: boolean }) {
+  const ref = useRef<HTMLElement>(null)
+  const reduce = useReducedMotion()
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] })
+  const y = useTransform(scrollYProgress, [0, 1], [0, 140])
+  const fade = useTransform(scrollYProgress, [0, 0.75], [1, 0])
+  const fieldScale = useTransform(scrollYProgress, [0, 1], [1, 1.12])
+  const up = (delay: number) => ({
+    initial: { opacity: 0, y: 16 },
+    animate: ready ? { opacity: 1, y: 0 } : undefined,
+    transition: { duration: 0.9, ease, delay },
+  })
+
   return (
-    <section className="flex min-h-svh items-start pb-16 pt-[calc(var(--nav)+64px)] lg:pt-[calc(var(--nav)+72px)]" aria-labelledby="hero-h">
-      <div className="wrap grid gap-12 lg:grid-cols-12 lg:gap-6">
-        <div className="lg:col-span-5 lg:pt-6">
-          <p className="enter-fade text-[14px] text-muted" style={delay(0)}>
-            Matched against more than 140,000 known phishing domains
-          </p>
-          <h1 id="hero-h" className="t-h1 mt-4">
-            <span className="enter-line">
-              <span style={delay(0)}>Scam checks</span>
+    <section ref={ref} className="relative h-svh min-h-[640px] overflow-hidden" aria-labelledby="hero-h">
+      {/* Zooms out into place as the intro's lens opens, so the intro and the page read as one shot */}
+      <motion.div
+        className="absolute inset-0"
+        initial={{ scale: 1.14 }}
+        animate={ready ? { scale: 1 } : undefined}
+        transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+      >
+      <motion.div className="absolute inset-0" style={reduce ? undefined : { scale: fieldScale }}>
+        <LensField play={ready} />
+      </motion.div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-ground via-ground/70 to-transparent" />
+
+      <motion.div
+        className="wrap relative flex h-full flex-col justify-end pb-[clamp(32px,7vh,88px)] pt-[var(--nav)]"
+        style={reduce ? undefined : { y, opacity: fade }}
+      >
+        <motion.p className="flex items-center gap-2 text-[14px] text-muted" {...up(0.15)}>
+          <span className="h-1.5 w-1.5 rounded-full bg-link" />
+          Matched against more than 140,000 known phishing domains
+        </motion.p>
+        <h1 id="hero-h" className="mt-5 text-[clamp(46px,8.2vw,150px)] font-medium leading-[0.94] tracking-[-0.055em]">
+          {HERO_LINES.map((line, i) => (
+            <span key={line} className="block">
+              <RevealWords text={line} play={ready} delay={0.1 + i * 0.09} stagger={0.05} />
             </span>
-            <span className="enter-line">
-              <span style={delay(80)}>for links</span>
-            </span>
-            <span className="enter-line">
-              <span style={delay(160)}>and messages</span>
-            </span>
-          </h1>
-          <p className="t-lead enter-fade mt-6 max-w-[34ch]" style={delay(420)}>
+          ))}
+        </h1>
+        <div className="mt-10 grid items-end gap-8 lg:grid-cols-12">
+          <motion.p className="t-lead max-w-[40ch] lg:col-span-6" {...up(0.55)}>
             Paste a suspicious link, website or SMS. TrustLens runs five checks at the same time and shows you what it
             found, with the evidence behind every finding.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link to="/check" className="btn btn-primary enter-fade" style={delay(480)}>
-              Check a link
-              <Arrow />
-            </Link>
-            <a href="#checks" className="btn btn-secondary enter-fade" style={delay(540)}>
-              See the five checks
+          </motion.p>
+          <motion.div className="flex flex-col gap-3 sm:flex-row lg:col-span-5 lg:col-start-8 lg:justify-end" {...up(0.65)}>
+            <Magnetic>
+              <Link to="/check" className="btn btn-primary w-full sm:w-auto">
+                Check a link
+                <Arrow />
+              </Link>
+            </Magnetic>
+            <a href="#demo" className="btn btn-secondary">
+              See how it works
             </a>
-          </div>
+          </motion.div>
         </div>
-        <div className="enter-settle lg:col-span-6 lg:col-start-7">
-          <HeroWindow />
+      </motion.div>
+      </motion.div>
+    </section>
+  )
+}
+
+const DEMO_CAPTIONS = [
+  ['Paste a link.', 'This one came in an SMS about a blocked PayPal account.'],
+  ['Lookalike names', 'paypa1 uses the digit 1 in place of the letter l.'],
+  ['Domain age', 'The domain was registered four days ago.'],
+  ['Known phishing lists', 'Not listed yet. Most new scam pages are not.'],
+  ['Certificate', 'Valid, which only means the connection is encrypted.'],
+  ['Security settings', 'Two common protections are missing.'],
+  ['High Risk', 'Fixed rules decide the verdict. The AI only explains it.'],
+] as const
+
+/** Pinned scene: the window tilts up into place, then scrolling runs the five checks one by one. */
+function DemoScene() {
+  const ref = useRef<HTMLElement>(null)
+  const reduce = useReducedMotion()
+  const enter = useScroll({ target: ref, offset: ['start end', 'start start'] }).scrollYProgress
+  const pinned = useScroll({ target: ref, offset: ['start start', 'end end'] }).scrollYProgress
+  const scale = useTransform(enter, [0, 1], [0.84, 1])
+  const rotateX = useTransform(enter, [0, 1], [24, 0])
+  const opacity = useTransform(enter, [0, 0.5], [0.2, 1])
+  const [step, setStep] = useState(reduce ? 6 : 0)
+  useMotionValueEvent(pinned, 'change', (p) => {
+    if (reduce) return
+    // About 75% of a screen of scrolling per check, then the verdict holds for the last stretch.
+    setStep(p < 0.08 ? 0 : Math.min(6, Math.floor((p - 0.08) / 0.13) + 1))
+  })
+  const [title, text] = DEMO_CAPTIONS[step]
+
+  return (
+    <section ref={ref} id="demo" className={reduce ? 'relative' : 'relative h-[620vh]'} aria-labelledby="demo-h">
+      <h2 id="demo-h" className="sr-only">
+        How a check runs
+      </h2>
+      <div
+        className={
+          reduce
+            ? 'py-24' // reduced motion: no pinning, the finished check is shown as a normal section
+            : 'sticky top-0 flex h-svh items-start overflow-hidden pt-[calc(var(--nav)+20px)] lg:items-center lg:pt-[var(--nav)]'
+        }
+      >
+        <div className="wrap relative grid items-center gap-4 lg:grid-cols-12 lg:gap-6">
+          <div className="lg:col-span-4">
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-[13px] text-faint tabular-nums">
+                {String(Math.min(step, 5)).padStart(2, '0')} / 05
+              </span>
+              <span className="flex flex-1 gap-1" aria-hidden="true">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <span key={n} className="h-px flex-1 bg-line-strong">
+                    <motion.span
+                      className="block h-full origin-left bg-link"
+                      animate={{ scaleX: step >= n ? 1 : 0 }}
+                      transition={{ duration: 0.4, ease }}
+                    />
+                  </span>
+                ))}
+              </span>
+            </div>
+            <div className="mt-4 min-h-[112px] lg:mt-6 lg:min-h-[180px]" aria-live="polite">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.32, ease }}
+                >
+                  <p
+                    className={`text-[clamp(28px,2.4vw+12px,48px)] font-medium leading-[1.05] tracking-[-0.04em] ${
+                      step === 6 ? 'text-risk-high' : 'text-ink'
+                    }`}
+                  >
+                    {title}
+                  </p>
+                  <p className="mt-3 max-w-[34ch] text-[16px] leading-relaxed text-muted">{text}</p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+          <div className="relative [perspective:1600px] lg:col-span-7 lg:col-start-6">
+            <motion.div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-x-10 -inset-y-16 -z-10 bg-[radial-gradient(closest-side,rgb(37_99_235/0.22),transparent)] blur-2xl"
+              animate={{ opacity: step >= 6 ? 1 : 0.45 }}
+              transition={{ duration: 0.8, ease }}
+            />
+            <motion.div
+              className="origin-bottom"
+              style={reduce ? undefined : { scale, rotateX, opacity }}
+            >
+              <DemoWindow step={step} />
+            </motion.div>
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
-function SectionHead({ id, title, sub }: { id: string; title: ReactNode; sub: ReactNode }) {
+function SectionHead({ id, title, sub }: { id: string; title: string; sub: string }) {
   return (
     <h2 id={id} className="t-h2 max-w-[34ch]">
-      {title} <span className="text-faint">{sub}</span>
+      <RevealWords text={title} stagger={0.03} /> <RevealWords text={sub} className="text-faint" delay={0.18} stagger={0.02} />
     </h2>
   )
 }
 
-function Feature({ title, children, visual }: { title: string; children: ReactNode; visual: ReactNode }) {
+function Feature({ title, children, visual, delay }: { title: string; children: ReactNode; visual: ReactNode; delay: number }) {
   return (
-    <article className="panel flex flex-col gap-4 p-6">
+    <Reveal as="article" delay={delay} className="panel spot flex flex-col gap-4 p-6" onPointerMove={spotlight}>
       <div className="min-h-[104px]">{visual}</div>
       <div className="mt-auto">
         <h3 className="t-h3">{title}</h3>
         <p className="mt-2 text-[16px] leading-relaxed text-muted">{children}</p>
       </div>
-    </article>
+    </Reveal>
   )
 }
 
@@ -173,16 +345,66 @@ const FAQ = [
   ],
 ] as const
 
+const SEALS = [
+  { title: 'Original report', ok: true, now: '0x7a3f9c…e2d491c2', chain: '0x7a3f9c…e2d491c2', note: 'Report matches its seal' },
+  { title: 'Same report, verdict edited to Low Risk', ok: false, now: '0xe05b17…a84c4d18', chain: '0x7a3f9c…e2d491c2', note: 'Changed after it was sealed' },
+]
+
+const TEAM = [
+  ['Mohammed Asif Ali', 'MdAsif678'],
+  ['Md Azhar Khan', 'azhar07kh-design'],
+  ['Md Adil Shamim', 'adilsam-anon'],
+  ['Md Shahzeb Ali', 'mdshahzebali'],
+] as const
+
+function GitHubIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0 opacity-70">
+      <path
+        fill="currentColor"
+        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+      />
+    </svg>
+  )
+}
+
+/** The closing wordmark: rises out of the page bottom as the footer scrolls in. */
+function Wordmark() {
+  const ref = useRef<HTMLDivElement>(null)
+  const reduce = useReducedMotion()
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end end'] })
+  const y = useTransform(scrollYProgress, [0, 1], ['45%', '0%'])
+  return (
+    <div ref={ref} className="overflow-hidden pb-[1.5vw]" aria-hidden="true">
+      <motion.p
+        className="select-none bg-gradient-to-b from-ink/[0.16] to-ink/[0.02] bg-clip-text text-center text-[22.5vw] font-medium leading-[0.8] tracking-[-0.07em] text-transparent"
+        style={reduce ? undefined : { y }}
+      >
+        TrustLens
+      </motion.p>
+    </div>
+  )
+}
+
 export default function LandingPage() {
+  const [ready, setReady] = useState(false)
+  useSmoothScroll()
+
   return (
     <>
+      <Preloader onReveal={() => setReady(true)} />
       <a href="#hero-h" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-30 focus:bg-ground focus:px-3 focus:py-2">
         Skip to content
       </a>
-      <LandingNav />
+      <LandingNav ready={ready} />
 
       <main>
-        <Hero />
+        <Hero ready={ready} />
+        <DemoScene />
+
+        {/* Everything below the demo; two trace curves sweep through it */}
+        <div className="relative">
+        <div className="relative">
 
         {/* The product, big */}
         <section className="section border-t border-line" aria-labelledby="product">
@@ -192,15 +414,16 @@ export default function LandingPage() {
               title="Every verdict comes with its evidence."
               sub="Each finding says what was seen and where it came from."
             />
-            <div className="mt-12">
+            <Reveal className="mt-12" y={48}>
               <ProductFrame />
-            </div>
+            </Reveal>
           </div>
         </section>
 
         {/* The moment */}
-        <section className="section flex items-center border-t border-line bg-sunken" aria-label="Why the padlock is not enough">
-          <div className="wrap">
+        <section className="section relative flex items-center border-t border-line bg-sunken/60" aria-label="Why the padlock is not enough">
+          <TraceCurve side="right" labels={['Certificate', 'Domain age', 'Phishing lists']} />
+          <div className="wrap relative">
             <Statement />
           </div>
         </section>
@@ -208,52 +431,44 @@ export default function LandingPage() {
         {/* How it works */}
         <section className="section border-t border-line" aria-labelledby="checks">
           <div className="wrap">
-            <SectionHead
-              id="checks"
-              title="Five checks run on every link."
-              sub="Each one reports on its own."
-            />
+            <SectionHead id="checks" title="Five checks run on every link." sub="Each one reports on its own." />
             <div className="mt-12 grid gap-10 lg:grid-cols-12 lg:gap-6">
-              <ol className="divide-y divide-line border-y border-line lg:col-span-5">
-                {CHECKS.map(([name, text]) => (
-                  <li key={name} className="grid gap-1 py-4 sm:grid-cols-[170px_1fr] sm:gap-6">
+              <ol className="border-t border-line lg:col-span-5">
+                {CHECKS.map(([name, text], i) => (
+                  <Reveal as="li" key={name} delay={i * 0.06} y={18} className="grid gap-1 border-b border-line py-4 sm:grid-cols-[170px_1fr] sm:gap-6">
                     <h3 className="text-[16px] font-medium text-ink">{name}</h3>
                     <p className="text-[15px] leading-relaxed text-muted">{text}</p>
-                  </li>
+                  </Reveal>
                 ))}
               </ol>
-              <div className="lg:col-span-6 lg:col-start-7">
+              <Reveal className="lg:col-span-6 lg:col-start-7" delay={0.15} y={40}>
                 <ChecksDiagram />
                 <p className="mt-6 max-w-[52ch] text-[16px] leading-relaxed text-muted">
                   Fixed rules turn the findings into one of five verdicts, from Low Risk to Confirmed Malicious. Google
                   Gemini then writes the explanation, using only what the checks found.
                 </p>
-              </div>
+              </Reveal>
             </div>
           </div>
         </section>
 
         {/* Features */}
-        <section className="section border-t border-line" aria-labelledby="report">
-          <div className="wrap">
-            <SectionHead
-              id="report"
-              title="Paste the whole message."
-              sub="Every link inside it gets checked."
-            />
+        <section className="section relative border-t border-line" aria-labelledby="report">
+          <div className="wrap relative">
+            <SectionHead id="report" title="Paste the whole message." sub="Every link inside it gets checked." />
             <div className="mt-10 grid gap-6 md:grid-cols-2">
-              <Feature title="Links pulled out of messages" visual={<MessageVisual />}>
+              <Feature title="Links pulled out of messages" visual={<MessageVisual />} delay={0}>
                 Forward the SMS, WhatsApp text or email as it is. Every link in it gets the full set of checks.
               </Feature>
-              <Feature title="Explanations that cite their evidence" visual={<ExplainVisual />}>
+              <Feature title="Explanations that cite their evidence" visual={<ExplainVisual />} delay={0.08}>
                 Each sentence of the explanation points to a finding. A sentence the checks cannot back is removed
                 before you see it.
               </Feature>
-              <Feature title="Repeat scams linked together" visual={<CampaignVisual />}>
+              <Feature title="Repeat scams linked together" visual={<CampaignVisual />} delay={0}>
                 Reports that share a server, a certificate, a phone number or a UPI ID are shown side by side as a
                 possible campaign.
               </Feature>
-              <Feature title="Internal addresses refused" visual={<BlockedVisual />}>
+              <Feature title="Internal addresses refused" visual={<BlockedVisual />} delay={0.08}>
                 The checker only visits public websites, so nobody can point it at the server it runs on.
               </Feature>
             </div>
@@ -261,7 +476,7 @@ export default function LandingPage() {
         </section>
 
         {/* Blockchain registry */}
-        <section id="registry-section" className="section border-t border-line bg-sunken" aria-labelledby="registry">
+        <section className="section border-t border-line bg-sunken/60" aria-labelledby="registry">
           <div className="wrap">
             <SectionHead
               id="registry"
@@ -269,45 +484,28 @@ export default function LandingPage() {
               sub="A fingerprint of each report is stored on Ethereum. Change one word and it stops matching."
             />
             <div className="mt-12 grid gap-10 lg:grid-cols-12 lg:gap-6">
-              <ol className="divide-y divide-line border-y border-line lg:col-span-5">
+              <ol className="border-t border-line lg:col-span-5">
                 {[
                   ['Seal', 'TrustLens computes a SHA-256 fingerprint of the report and records it with the risk level, the time and the TrustLens wallet.'],
                   ['Share', 'Send the report to a bank, a college or the cyber crime cell as evidence.'],
                   ['Verify', 'Anyone can recompute the fingerprint and compare it with the record on the chain, which nobody can edit.'],
                 ].map(([step, text], i) => (
-                  <li key={step} className="grid grid-cols-[32px_1fr] gap-4 py-5">
+                  <Reveal as="li" key={step} delay={i * 0.08} y={18} className="grid grid-cols-[32px_1fr] gap-4 border-b border-line py-5">
                     <span className="font-mono text-[14px] text-faint">0{i + 1}</span>
                     <div>
                       <h3 className="text-[16px] font-medium">{step}</h3>
                       <p className="mt-1 text-[15px] leading-relaxed text-muted">{text}</p>
                     </div>
-                  </li>
+                  </Reveal>
                 ))}
               </ol>
-              <div className="lg:col-span-6 lg:col-start-7">
+              <Reveal className="lg:col-span-6 lg:col-start-7" delay={0.15} y={40}>
                 <div className="window" role="img" aria-label="Two verification results: an untouched report matches its seal, an edited one does not">
-                  {[
-                    {
-                      title: 'Original report',
-                      ok: true,
-                      now: '0x7a3f9c…e2d491c2',
-                      chain: '0x7a3f9c…e2d491c2',
-                      note: 'Report matches its seal',
-                    },
-                    {
-                      title: 'Same report, verdict edited to Low Risk',
-                      ok: false,
-                      now: '0xe05b17…a84c4d18',
-                      chain: '0x7a3f9c…e2d491c2',
-                      note: 'Changed after it was sealed',
-                    },
-                  ].map((r) => (
+                  {SEALS.map((r) => (
                     <div key={r.title} className="border-b border-line p-6 last:border-b-0">
                       <div className="flex items-center justify-between gap-4">
                         <p className="text-[15px] text-ink">{r.title}</p>
-                        <span
-                          className={`inline-flex items-center gap-2 text-[14px] ${r.ok ? 'text-risk-low' : 'text-risk-malicious'}`}
-                        >
+                        <span className={`inline-flex items-center gap-2 text-[14px] ${r.ok ? 'text-risk-low' : 'text-risk-malicious'}`}>
                           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
                             {r.ok ? (
                               <path d="M3 7.2l2.6 2.6L11 4.4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -334,25 +532,31 @@ export default function LandingPage() {
                     Links, messages and personal details never go on-chain.
                   </p>
                 </div>
-              </div>
+              </Reveal>
             </div>
           </div>
         </section>
 
         {/* FAQ, every answer open */}
-        <section className="section border-t border-line" aria-labelledby="faq">
-          <div className="wrap">
-            <SectionHead id="faq" title="Questions about TrustLens." sub="What it can and cannot tell you." />
-            <dl className="mt-12 grid gap-x-6 gap-y-10 md:grid-cols-2">
+        <section className="section relative border-t border-line" aria-labelledby="faq">
+          <TraceCurve side="left" labels={['SHA-256', 'Ethereum', 'Verified']} />
+          {/* Heading pinned on the left while the questions scroll on the right; the curve sweeps through the space below it */}
+          <div className="wrap relative grid gap-12 lg:grid-cols-12 lg:gap-6">
+            <div className="lg:sticky lg:top-[calc(var(--nav)+48px)] lg:col-span-4 lg:self-start">
+              <SectionHead id="faq" title="Questions about TrustLens." sub="What it can and cannot tell you." />
+            </div>
+            <dl className="grid gap-y-10 lg:col-span-7 lg:col-start-6">
               {FAQ.map(([q, a]) => (
-                <div key={q} className="border-t border-line pt-6">
+                <Reveal key={q} y={20} className="border-t border-line pt-6">
                   <dt className="text-[18px] font-medium tracking-[-0.01em]">{q}</dt>
                   <dd className="mt-2 max-w-[56ch] text-[16px] leading-relaxed text-muted">{a}</dd>
-                </div>
+                </Reveal>
               ))}
             </dl>
           </div>
         </section>
+        </div>
+        </div>
       </main>
 
       {/* Close and footer, one section */}
@@ -360,53 +564,79 @@ export default function LandingPage() {
         <div className="wrap pb-10 pt-28">
           <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
             <p className="text-[clamp(36px,3.6vw+14px,72px)] font-medium leading-[1.04] tracking-[-0.04em] lg:col-span-8">
-              Check the next link before you tap it.
+              <RevealWords text="Check the next link before you tap it." stagger={0.05} />
             </p>
             <div className="lg:col-span-4 lg:justify-self-end">
-              <Link to="/check" className="btn btn-primary w-full sm:w-auto">
-                Check a link
-                <Arrow />
-              </Link>
+              <Magnetic>
+                <Link to="/check" className="btn btn-primary w-full sm:w-auto">
+                  Check a link
+                  <Arrow />
+                </Link>
+              </Magnetic>
             </div>
           </div>
 
-          <div className="mt-24 grid gap-8 border-t border-line pt-8 sm:grid-cols-3">
-            <div>
+          <div className="mt-24 grid grid-cols-[auto_1fr] gap-x-12 gap-y-10 border-t border-line pt-10 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-12">
+            <div className="col-span-2 lg:col-span-5">
               <Logo />
-              <p className="mt-3 max-w-[30ch] text-[14px] text-faint">
+              <p className="mt-3 max-w-[32ch] text-[14px] text-faint">
                 Scam and phishing checks for links, websites and messages.
               </p>
+              <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-line-strong py-1.5 pl-2.5 pr-3.5 text-[13px] text-muted">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-link/60" />
+                  <span className="relative h-2 w-2 rounded-full bg-link" />
+                </span>
+                Built for HackMatrix 2026
+              </div>
+              <p className="mt-3 max-w-[40ch] text-[13px] leading-relaxed text-faint">
+                AI-Powered Web Threat Detection and Digital Trust Intelligence
+              </p>
             </div>
-            <nav aria-label="Checker">
+            <nav aria-label="Checker" className="lg:col-span-3">
               <h3 className="t-label">Checker</h3>
-              <ul className="mt-3 space-y-2 text-[15px]">
+              <ul className="mt-3 space-y-2 text-[14px] sm:text-[15px]">
                 <li><Link to="/check" className="nav-link">Check a link</Link></li>
                 <li><Link to="/history" className="nav-link">History</Link></li>
                 <li><Link to="/verify" className="nav-link">Verify a report</Link></li>
               </ul>
             </nav>
-            <nav aria-label="Project">
-              <h3 className="t-label">Project</h3>
-              <ul className="mt-3 space-y-2 text-[15px]">
-                <li>
-                  <a href="https://github.com/MdAsif678/Hackmatrix_Breaking_Bugs" className="nav-link" target="_blank" rel="noreferrer">
-                    Source on GitHub
-                  </a>
-                </li>
-                <li>
-                  <a href="https://github.com/MdAsif678/Hackmatrix_Breaking_Bugs/blob/main/docs/security-methodology.md" className="nav-link" target="_blank" rel="noreferrer">
-                    Security methodology
-                  </a>
-                </li>
+            <nav aria-label="Made by" className="lg:col-span-4">
+              <h3 className="t-label">Made by</h3>
+              <ul className="mt-3 space-y-2 text-[14px] sm:text-[15px]">
+                {TEAM.map(([name, user]) => (
+                  <li key={user}>
+                    <a
+                      href={`https://github.com/${user}`}
+                      className="nav-link group inline-flex items-center gap-2"
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`${name} on GitHub`}
+                    >
+                      <GitHubIcon />
+                      {name}
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        aria-hidden="true"
+                        className="hidden -translate-x-1 opacity-0 transition-[opacity,transform] duration-150 group-hover:translate-x-0 group-hover:opacity-100 sm:block"
+                      >
+                        <path d="M3.5 8.5l5-5M4.5 3.5h4v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </a>
+                  </li>
+                ))}
               </ul>
             </nav>
           </div>
 
-          <div className="mt-10 flex flex-col gap-2 text-[13px] text-faint sm:flex-row sm:justify-between">
-            <p>TrustLens, 2026. Built at HackMatrix.</p>
+          <div className="mt-12 flex flex-col gap-2 border-t border-line pt-6 text-[13px] text-faint sm:flex-row sm:justify-between">
+            <p>TrustLens, 2026. Built for HackMatrix.</p>
             <p>Automated checks cannot prove a website is safe.</p>
           </div>
         </div>
+        <Wordmark />
       </footer>
     </>
   )

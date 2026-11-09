@@ -11,12 +11,12 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-ground: #0c0d0f; /* page */
-  --color-raised: #131417; /* cards, windows */
-  --color-sunken: #0f1012; /* rows inside a window */
-  --color-ink: #ededef; /* text, 16:1 on ground */
-  --color-muted: #a1a2a9; /* secondary text, 7:1 */
-  --color-faint: #80828a; /* labels and meta, 4.9:1 */
+  --color-ground: #0a0a0a; /* page */
+  --color-raised: #141414; /* cards, windows */
+  --color-sunken: #0f0f0f; /* rows inside a window */
+  --color-ink: #ededed; /* text, 16:1 on ground */
+  --color-muted: #a3a3a3; /* secondary text, 7:1 */
+  --color-faint: #828282; /* labels and meta, 4.9:1 */
   --color-line: rgb(237 237 239 / 0.1); /* hairline */
   --color-line-strong: rgb(237 237 239 / 0.2);
 
@@ -61,6 +61,17 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+/* Matte finish: a very fine, static grain over the whole site, like a printed black rather than a screen black.
+   One fixed layer, never animated, so it costs nothing while scrolling. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 ::selection { background: rgb(37 99 235 / 0.45); color: #fff; }
 
@@ -111,7 +122,7 @@ body {
     gap: 8px;
     height: 44px;
     padding: 0 24px;
-    border-radius: var(--radius-md);
+    border-radius: 999px; /* pill */
     font-size: 16px;
     font-weight: 500;
     line-height: 1;
@@ -271,51 +282,51 @@ body {
 
 /* ---------------------------------------------- motion ---------------------------------------------- */
 
-/* Hero entrance, once on load: h1 lines rise from masks, then lead and buttons fade up, the window settles */
-.enter-line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
-.enter-line > span { display: block; animation: line-rise 700ms var(--ease-enter) both; }
-.enter-fade { animation: fade-up 520ms var(--ease-enter) both; }
-.enter-settle { animation: settle 900ms var(--ease-enter) both; }
-@keyframes line-rise { from { transform: translateY(105%); } to { transform: translateY(0); } }
-@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes settle { from { opacity: 0.001; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+/* The browser's scrollbar is hidden on mouse/trackpad devices; ScrollBar.tsx draws our own. Scrolling itself
+   (wheel, keys, touch) is untouched. Touch screens keep their own overlay bars. */
+@media (pointer: fine) {
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar { display: none; }
+}
 
-/* Hero window loop: the five checks tick, the verdict lands, the finished picture holds */
-.loop { --cycle: 4s; }
-.loop [data-step] { animation-duration: var(--cycle); animation-iteration-count: infinite; animation-timing-function: linear; animation-fill-mode: both; }
-.loop .wait[data-step="1"] { animation-name: wait-1; } .loop .done[data-step="1"] { animation-name: done-1; }
-.loop .wait[data-step="2"] { animation-name: wait-2; } .loop .done[data-step="2"] { animation-name: done-2; }
-.loop .wait[data-step="3"] { animation-name: wait-3; } .loop .done[data-step="3"] { animation-name: done-3; }
-.loop .wait[data-step="4"] { animation-name: wait-4; } .loop .done[data-step="4"] { animation-name: done-4; }
-.loop .wait[data-step="5"] { animation-name: wait-5; } .loop .done[data-step="5"] { animation-name: done-5; }
-.loop .verdict[data-step="v"] { animation-name: verdict-in; }
-.loop.is-paused [data-step], .loop.is-paused .spin { animation-play-state: paused !important; }
-@keyframes wait-1 { 0%, 9% { opacity: 1; } 10%, 100% { opacity: 0; } }
-@keyframes done-1 { 0%, 9% { opacity: 0; } 10%, 100% { opacity: 1; } }
-@keyframes wait-2 { 0%, 19% { opacity: 1; } 20%, 100% { opacity: 0; } }
-@keyframes done-2 { 0%, 19% { opacity: 0; } 20%, 100% { opacity: 1; } }
-@keyframes wait-3 { 0%, 29% { opacity: 1; } 30%, 100% { opacity: 0; } }
-@keyframes done-3 { 0%, 29% { opacity: 0; } 30%, 100% { opacity: 1; } }
-@keyframes wait-4 { 0%, 39% { opacity: 1; } 40%, 100% { opacity: 0; } }
-@keyframes done-4 { 0%, 39% { opacity: 0; } 40%, 100% { opacity: 1; } }
-@keyframes wait-5 { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-@keyframes done-5 { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
-@keyframes verdict-in { 0%, 56% { opacity: 0.12; transform: translateY(4px); } 62%, 100% { opacity: 1; transform: none; } }
+/* Smooth scrolling (Lenis) */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
+body { overflow-x: clip; }
+
+/* Spotlight: a soft blue glow follows the pointer across a card (--mx/--my set by spotlight() in Reveal.tsx) */
+.spot { position: relative; isolation: isolate; }
+.spot::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(141 177 255 / 0.11), transparent 45%);
+  opacity: 0;
+  transition: opacity 300ms var(--ease-ui);
+}
+@media (hover: hover) and (pointer: fine) {
+  .spot:hover::before { opacity: 1; }
+}
+
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Diagram pulses travel along the lines while the pointer is on the card */
-.diagram .pulse { stroke-dasharray: 10 200; stroke-dashoffset: 210; opacity: 0; }
-@media (hover: hover) and (pointer: fine) {
-  .diagram:hover .pulse, .diagram:focus-within .pulse { opacity: 1; animation: pulse-run 2.4s linear infinite; }
+/* Diagram packets: a short dash runs the length of each line (pathLength = 1), stage by stage, on a 3.2 s loop.
+   Runs only while the diagram is on screen (.is-live, set in ChecksDiagram). */
+.diagram .pulse { stroke-dasharray: 0.16 2; stroke-dashoffset: 0.16; opacity: 0; }
+.diagram.is-live .pulse { animation: packet 3.2s linear infinite both; }
+@keyframes packet {
+  0% { stroke-dashoffset: 0.16; opacity: 1; }
+  30% { stroke-dashoffset: -1; opacity: 1; }
+  30.01%, 100% { stroke-dashoffset: -1; opacity: 0; }
 }
-@keyframes pulse-run { to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-property: color, background-color, border-color, opacity !important; }
-  .enter-line > span, .enter-fade, .enter-settle { opacity: 1 !important; transform: none !important; }
-  .loop .wait { opacity: 0 !important; }
-  .loop .done, .loop .verdict { opacity: 1 !important; transform: none !important; }
   .statement-word { color: var(--color-ink) !important; }
 }
 

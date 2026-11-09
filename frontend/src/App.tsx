@@ -1,7 +1,8 @@
 // App shell for the checker pages (/check, /report, /history, /verify). The landing page has its own. Owner: P1.
 import { useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { Logo } from './components/Brand'
+import { PageFade } from './components/motion/PageTransition'
 
 const LINKS = [
   { to: '/check', label: 'Check' },
@@ -59,7 +60,7 @@ export default function App() {
       </header>
 
       <main className="wrap flex-1 pb-24 pt-[calc(var(--nav)+48px)]">
-        <Outlet />
+        <PageFade />
       </main>
 
       <footer className="border-t border-line">
