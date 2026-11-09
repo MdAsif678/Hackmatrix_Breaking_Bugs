@@ -3,6 +3,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
+import { CheckPipeline } from '../components/CheckPipeline'
+import { scrollToTarget } from '../components/motion/smooth'
+import type { AnalysisReport } from '../types'
 import { Arrow } from '../components/Brand'
 
 type Mode = 'url' | 'message'
@@ -36,48 +39,36 @@ function AutoHeight({ children }: { children: ReactNode }) {
 
 const STEPS = ['Lookalike names', 'Domain age', 'Known phishing lists', 'Certificate', 'Security settings', 'Explanation']
 
-function Progress() {
-  return (
-    <div className="panel p-6" role="status" aria-live="polite">
-      <p className="text-[15px] text-ink">Checking now. This usually takes 5 to 15 seconds.</p>
-      <ul className="mt-4 divide-y divide-line">
-        {STEPS.map((s) => (
-          <li key={s} className="flex h-11 items-center gap-3 text-[15px] text-muted">
-            <svg className="spin" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-              <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.6" />
-              <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            {s}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
 export default function CheckPage() {
   const navigate = useNavigate()
   const [mode, setMode] = useState<Mode>('url')
   const [url, setUrl] = useState('')
   const [text, setText] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The current (or last) check: the pipeline under the form shows it.
+  const [run, setRun] = useState<{ id: number; mode: Mode; target: string; report: AnalysisReport | null; error: string | null } | null>(null)
+  const loading = !!run && !run.error
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (loading) return
     const value = mode === 'url' ? url.trim() : text.trim()
     if (!value) {
       setError(mode === 'url' ? 'Paste a link or a domain, for example example.com' : 'Paste the message you received')
       return
     }
     setError(null)
-    setLoading(true)
+    const id = Date.now()
+    const target = mode === 'url' ? value : value.replace(/\s+/g, ' ').slice(0, 80)
+    setRun({ id, mode, target, report: null, error: null })
+    // Bring the pipeline into view once it has opened.
+    setTimeout(() => scrollToTarget('#pipeline', -96), 350)
     try {
       const report = mode === 'url' ? await api.analyzeUrl(value) : await api.analyzeMessage(value)
-      navigate(`/report/${report.id}`)
+      setRun((r) => (r && r.id === id ? { ...r, report } : r))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
-      setLoading(false)
+      const message = err instanceof Error ? err.message : 'Something went wrong. Try again.'
+      setRun((r) => (r && r.id === id ? { ...r, error: message } : r))
     }
   }
 
@@ -96,6 +87,7 @@ export default function CheckPage() {
               type="button"
               role="tab"
               aria-selected={mode === m}
+              aria-label={m === 'url' ? 'Link or website' : 'Message or email'}
               onClick={() => {
                 setMode(m)
                 setError(null)
@@ -201,26 +193,44 @@ export default function CheckPage() {
             </button>
           </div>
         </form>
+
+        {/* The live pipeline: opens under the form when a check starts */}
+        <AnimatePresence>
+          {run && (
+            <motion.div
+              id="pipeline"
+              key={run.id}
+              className="mt-10"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease } }}
+              exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            >
+              <CheckPipeline
+                mode={run.mode}
+                target={run.target}
+                report={run.report}
+                error={run.error}
+                onDone={(report) => navigate(`/report/${report.id}`)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <aside className="lg:col-span-4 lg:col-start-9">
-        {loading ? (
-          <Progress />
-        ) : (
-          <div className="panel p-6">
-            <h2 className="text-[16px] font-medium">What gets checked</h2>
-            <ul className="mt-3 divide-y divide-line text-[15px] text-muted">
-              {STEPS.map((s) => (
-                <li key={s} className="py-2.5">
-                  {s}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-4 border-t border-line pt-4 text-[14px] leading-relaxed text-faint">
-              Never paste a password, OTP or card number. No check needs them.
-            </p>
-          </div>
-        )}
+      <aside className="lg:sticky lg:top-[calc(var(--nav)+48px)] lg:col-span-4 lg:col-start-9 lg:self-start">
+        <div className="panel p-6">
+          <h2 className="text-[16px] font-medium">What gets checked</h2>
+          <ul className="mt-3 divide-y divide-line text-[15px] text-muted">
+            {STEPS.map((s) => (
+              <li key={s} className="py-2.5">
+                {s}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 border-t border-line pt-4 text-[14px] leading-relaxed text-faint">
+            Never paste a password, OTP or card number. No check needs them.
+          </p>
+        </div>
       </aside>
     </div>
   )

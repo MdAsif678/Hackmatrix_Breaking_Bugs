@@ -289,6 +289,16 @@ body::after {
   html::-webkit-scrollbar { display: none; }
 }
 
+/* Frosted glass for the fixed navbar: the page shows through, blurred and slightly brightened, with a fine
+   highlight along the bottom edge. Shared by every page (LandingPage nav after scrolling, App nav always). */
+.glass {
+  background: rgb(10 10 10 / 0.55);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  backdrop-filter: blur(20px) saturate(170%);
+  border-bottom-color: rgb(237 237 237 / 0.08);
+  box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.03), 0 8px 32px -16px rgb(0 0 0 / 0.6);
+}
+
 /* Smooth scrolling (Lenis) */
 html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
@@ -311,6 +321,10 @@ body { overflow-x: clip; }
 @media (hover: hover) and (pointer: fine) {
   .spot:hover::before { opacity: 1; }
 }
+
+/* Check pipeline: a soft light runs down the line under the stage that is working */
+.pipeline-flow { top: -2.5rem; animation: pipeline-flow 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+@keyframes pipeline-flow { to { top: 100%; } }
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

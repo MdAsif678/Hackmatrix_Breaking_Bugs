@@ -46,7 +46,7 @@ function LandingNav({ ready }: { ready: boolean }) {
         open
           ? 'border-line bg-ground' // no blur here: backdrop-filter would trap the fixed menu inside the header
           : solid
-            ? 'border-line bg-ground/80 backdrop-blur-md'
+            ? 'glass'
             : 'border-transparent bg-transparent'
       }`}
       initial={{ opacity: 0, y: -12 }}

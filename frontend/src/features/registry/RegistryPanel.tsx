@@ -1,3 +1,5 @@
+// "Blockchain seal" block in the report sidebar. Owner: P4 (styled by P1 to match the site).
+// Seal the report (its SHA-256 fingerprint goes on Ethereum), copy the fingerprint, verify it later.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
@@ -27,101 +29,80 @@ export function RegistryPanel({ report, onRegistered }: Props) {
     }
   }
 
-  function copyHash(hash: string) {
-    navigator.clipboard.writeText(hash)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  async function copyHash(hash: string) {
+    try {
+      await navigator.clipboard.writeText(hash)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* clipboard blocked: the full hash is still in the tooltip */
+    }
   }
 
   return (
-    <section className="panel overflow-hidden border border-line bg-raised p-5">
-      <div className="flex items-center justify-between border-b border-line pb-3">
-        <div className="flex items-center gap-2">
-          <svg className="h-4 w-4 text-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <h2 className="text-[14px] font-medium text-ink">Blockchain Integrity Seal</h2>
-        </div>
-        <span className="rounded-full border border-line bg-sunken px-2 py-0.5 font-mono text-[11px] text-faint">
-          {report.chain ? report.chain.network : 'Sepolia / EVM'}
-        </span>
+    <section className="panel p-5" aria-labelledby="seal-h">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="seal-h" className="whitespace-nowrap text-[15px] font-medium">
+          Blockchain seal
+        </h2>
+        <span className="whitespace-nowrap font-mono text-[12px] capitalize text-faint">{report.chain ? report.chain.network : 'Sepolia'}</span>
       </div>
-
-      <p className="mt-3 text-[13px] leading-relaxed text-muted">
-        Registers an immutable SHA-256 fingerprint on-chain for tamper-proof verification. No raw URLs or PII are stored on-chain.
+      <p className="mt-2 text-[14px] leading-relaxed text-faint">
+        Stores a SHA-256 fingerprint of this report on Ethereum, so anyone can later prove it was not changed. The link
+        and any personal details stay off-chain.
       </p>
 
       {report.chain ? (
-        <div className="mt-4 rounded-md border border-line bg-sunken p-3.5">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-risk-low">
-              <span className="h-1.5 w-1.5 rounded-full bg-risk-low" />
-              Sealed On-Chain
-            </span>
-            <button
-              type="button"
-              onClick={() => copyHash(report.chain?.report_hash || '')}
-              className="text-[11px] font-mono text-link hover:underline"
-            >
-              {copied ? 'Copied!' : 'Copy Hash'}
-            </button>
+        <>
+          <div className="mt-4 flex items-center gap-2 text-[13px] text-risk-low">
+            <span className="h-1.5 w-1.5 rounded-full bg-risk-low" />
+            Sealed
           </div>
-
-          <dl className="mt-3 grid gap-1.5 text-[12px]">
-            <div className="flex justify-between gap-2">
-              <dt className="text-faint">Hash</dt>
-              <dd className="font-mono text-muted" title={report.chain.report_hash}>
-                {short(report.chain.report_hash)}
+          <dl className="mt-3 grid gap-2 border-t border-line pt-3 text-[13px]">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-faint">Fingerprint</dt>
+              <dd className="flex items-center gap-2">
+                <span className="font-mono text-muted" title={report.chain.report_hash}>
+                  {short(report.chain.report_hash)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copyHash(report.chain!.report_hash)}
+                  className="rounded-full border border-line px-2 py-0.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+                  aria-label="Copy the full fingerprint"
+                >
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
               </dd>
             </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-faint">Record ID</dt>
+            <div className="flex justify-between gap-3">
+              <dt className="text-faint">Record</dt>
               <dd className="font-mono text-muted">#{report.chain.chain_report_id}</dd>
             </div>
-            <div className="flex justify-between gap-2">
+            <div className="flex justify-between gap-3">
               <dt className="text-faint">Transaction</dt>
               <dd className="font-mono text-muted" title={report.chain.tx_hash}>
                 {short(report.chain.tx_hash)}
               </dd>
             </div>
           </dl>
-
-          <Link
-            to={`/verify/${report.id}`}
-            className="btn btn-secondary mt-3 flex w-full items-center justify-center gap-2 py-2 text-[13px]"
-          >
-            Verify Cryptographic Seal
+          <Link to={`/verify/${report.id}`} className="btn btn-secondary mt-4 w-full">
+            Verify this report
           </Link>
-        </div>
+        </>
       ) : (
-        <button
-          type="button"
-          onClick={register}
-          disabled={busy}
-          className="btn btn-primary mt-4 flex w-full items-center justify-center gap-2 py-2.5 text-[13px]"
-        >
-          {busy ? (
-            <>
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-              Sealing on Blockchain…
-            </>
-          ) : (
-            <>
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-              Seal Report on Blockchain
-            </>
+        <button type="button" onClick={register} disabled={busy} className="btn btn-secondary mt-4 w-full">
+          {busy && (
+            <svg className="spin" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.6" />
+              <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
           )}
+          {busy ? 'Sealing' : 'Seal this report'}
         </button>
       )}
 
-      {error && (
-        <p className="mt-2.5 rounded-sm border border-risk-suspicious/30 bg-risk-suspicious/10 p-2 text-[12px] text-risk-suspicious">
-          {error}
-        </p>
-      )}
+      {error && <p className="mt-3 text-[13px] leading-relaxed text-risk-suspicious">{error}</p>}
     </section>
   )
 }

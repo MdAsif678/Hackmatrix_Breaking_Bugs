@@ -16,7 +16,11 @@ export default function App() {
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="fixed inset-x-0 top-0 z-10 h-[var(--nav)] border-b border-line bg-ground">
+      <header
+        className={`fixed inset-x-0 top-0 z-20 h-[var(--nav)] border-b transition-[background-color,border-color] duration-300 ${
+          open ? 'border-line bg-ground' /* no blur while open: backdrop-filter would trap the fixed menu */ : 'glass'
+        }`}
+      >
         <div className="wrap flex h-full items-center gap-8">
           <Logo />
           <nav className="hidden items-center gap-6 sm:flex" aria-label="Checker">
