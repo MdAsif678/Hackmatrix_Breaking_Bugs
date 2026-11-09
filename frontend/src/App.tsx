@@ -1,8 +1,9 @@
-// App shell for the checker pages (/check, /report, /history, /verify). The landing page has its own. Owner: P1.
+// App shell for the checker pages (/check, /report, /history, /verify). Shares the site footer with the landing page. Owner: P1.
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Logo } from './components/Brand'
 import { PageFade } from './components/motion/PageTransition'
+import { SiteFooter } from './components/SiteFooter'
 
 const LINKS = [
   { to: '/check', label: 'Check' },
@@ -63,12 +64,7 @@ export default function App() {
         <PageFade />
       </main>
 
-      <footer className="border-t border-line">
-        <div className="wrap flex flex-col gap-2 py-8 text-[14px] text-faint sm:flex-row sm:justify-between">
-          <p>Automated checks cannot prove a website is safe. Never share a password, OTP or card number because a message asked for it.</p>
-          <p className="shrink-0">TrustLens, 2026</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
