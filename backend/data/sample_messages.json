@@ -1,0 +1,98 @@
+[
+  {
+    "id": "scam-kyc-1",
+    "label": "scam",
+    "text": "Dear customer, your SBI account KYC is suspended. Immediately click http://sbi-kyc-update.example/login to verify your Aadhaar and PAN card, or your account will be blocked today.",
+    "expect": ["message.kyc_update", "message.impersonation"]
+  },
+  {
+    "id": "scam-otp-theft-1",
+    "label": "scam",
+    "text": "Dear customer, an unauthorized transaction of ₹15,000 was initiated on your card. To cancel, please share the OTP sent to your mobile with our support executive.",
+    "expect": ["message.otp_request"]
+  },
+  {
+    "id": "scam-job-fee-1",
+    "label": "scam",
+    "text": "Congratulations! You are selected for work from home data entry job with salary of ₹45,000 per month. Pay a refundable registration charge of ₹999 at payment.support@ybl to receive your appointment letter.",
+    "expect": ["message.job_fee"]
+  },
+  {
+    "id": "scam-remote-support-1",
+    "label": "scam",
+    "text": "Urgent technical assistance: your banking security certificate has expired. Download AnyDesk or TeamViewer on your phone immediately and provide your 9-digit code to complete the verification.",
+    "expect": ["message.remote_access"]
+  },
+  {
+    "id": "scam-lottery-prize-1",
+    "label": "scam",
+    "text": "You have won a lottery prize money of ₹25,00,000 in Kaun Banega Crorepati lucky draw! Contact manager at +919876543210 on WhatsApp to claim your prize immediately.",
+    "expect": ["message.prize_or_refund"]
+  },
+  {
+    "id": "scam-electricity-cutoff-1",
+    "label": "scam",
+    "text": "Dear consumer, your electricity power will be disconnected tonight at 9:30 PM from the power station because your previous month bill was not updated. Immediately pay now via http://bit.ly/power-bill-pay to avoid disruption.",
+    "expect": ["message.shortened_link", "message.payment_request"]
+  },
+  {
+    "id": "scam-delivery-fee-1",
+    "label": "scam",
+    "text": "India Post alert: Your parcel package #IN88923 cannot be delivered due to missing house number. Pay processing fee of Rs. 49 to reschedule delivery at http://indiapost-update.xyz/pay immediately.",
+    "expect": ["message.impersonation", "message.payment_request"]
+  },
+  {
+    "id": "scam-investment-double-1",
+    "label": "scam",
+    "text": "Special crypto investment scheme: Invest ₹5,000 today and receive guaranteed ₹15,000 within 24 hours. Send money to invest.growth@okhdfcbank to activate your high-yield portfolio now.",
+    "expect": ["message.payment_request", "message.urgency"]
+  },
+  {
+    "id": "scam-tax-refund-1",
+    "label": "scam",
+    "text": "Income Tax Department notification: An excess tax refund of ₹12,450 has been approved for your PAN card. Update your banking details at http://incometax-efiling-refund.example/claim before today.",
+    "expect": ["message.prize_or_refund", "message.impersonation"]
+  },
+  {
+    "id": "scam-university-fee-1",
+    "label": "scam",
+    "text": "University Exam Notice: Your semester registration fee is unpaid. Final last chance: transfer ₹2,500 immediately to accounts.dean@paytm to prevent suspension from upcoming exams.",
+    "expect": ["message.payment_request", "message.urgency"]
+  },
+  {
+    "id": "legit-bank-otp-1",
+    "label": "genuine",
+    "text": "492018 is the OTP for your online transaction of Rs 1,499.00 at Flipkart using HDFC Bank card ending 8812. Do not share your OTP with anyone. -HDFC Bank",
+    "expect": []
+  },
+  {
+    "id": "legit-delivery-update-1",
+    "label": "genuine",
+    "text": "Your Amazon order with tracking #402-99128 is out for delivery today and will arrive by 7 PM. Please keep exact change ready if paying cash on delivery.",
+    "expect": []
+  },
+  {
+    "id": "legit-college-notice-1",
+    "label": "genuine",
+    "text": "Department of Computer Science: Mid-semester examinations will commence from Monday, 15th November. The schedule and classroom allocations are published on the college notice board.",
+    "expect": []
+  },
+  {
+    "id": "legit-flight-confirmation-1",
+    "label": "genuine",
+    "text": "Indigo Booking Ref: 6E-409 from Delhi (DEL) to Bengaluru (BLR) on 12 Nov at 08:30 hrs is confirmed. Web check-in opens 48 hours prior to departure.",
+    "expect": []
+  },
+  {
+    "id": "legit-salary-credit-1",
+    "label": "genuine",
+    "text": "Your Account XX4901 has been credited with ₹68,500.00 on 01-Nov-2026 by NEFT-Salary. Available Balance: ₹94,210.50. -State Bank of India",
+    "expect": []
+  },
+  {
+    "id": "legit-friend-message-1",
+    "label": "genuine",
+    "text": "Hey Rahul! Let me know if you are free this evening to discuss the hackathon project presentation slides. I will be at the library around 5 PM.",
+    "expect": []
+  }
+]

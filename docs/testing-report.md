@@ -22,5 +22,8 @@ Requirement: at least 3 suspicious and 3 benign test cases, with observed result
 
 | # | Input | Type | Expected | Observed risk level | Key findings | Notes |
 |---|---|---|---|---|---|---|
-| 10 | *Pending P3* | message | suspicious | – | – | – |
-| 11 | *Pending P3* | message | low_risk | – | – | – |
+| 10 | `"Dear customer, your SBI account KYC is suspended. Immediately click http://sbi-kyc-update.example/login to verify your Aadhaar and PAN card, or your account will be blocked today."` | message | high_risk | high_risk | `message.impersonation`, `message.kyc_update`, `message.urgency`, `url.brand_in_subdomain` | Multi-vector attack combining SMS impersonation with phishing link. |
+| 11 | `"Dear customer, an unauthorized transaction of ₹15,000 was initiated on your card. To cancel, please share the OTP sent to your mobile with our support executive."` | message | suspicious | suspicious | `message.otp_request` (High) | Direct OTP theft attempt attempting social engineering authorization. |
+| 12 | `"Congratulations! You are selected for work from home data entry job with salary of ₹45,000 per month. Pay a refundable registration charge of ₹999 at payment.support@ybl to receive your appointment letter."` | message | suspicious | suspicious | `message.job_fee` (High) | Advance-fee employment scam demanding registration fee via UPI. |
+| 13 | `"492018 is the OTP for your online transaction of Rs 1,499.00 at Flipkart using HDFC Bank card ending 8812. Do not share your OTP with anyone. -HDFC Bank"` | message | low_risk | low_risk | None (0 findings) | Authentic bank advisory containing "Do not share" correctly unflagged. |
+| 14 | `"Your Amazon order with tracking #402-99128 is out for delivery today and will arrive by 7 PM. Please keep exact change ready if paying cash on delivery."` | message | low_risk | low_risk | None (0 findings) | Genuine delivery status alert containing no deceptive indicators. |
