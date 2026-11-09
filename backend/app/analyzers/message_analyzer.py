@@ -122,6 +122,57 @@ def extract_indicators(text: str) -> dict[str, list[str]]:
     }
 
 
+# Words meaning "this is free / we never charge": a fee mentioned in such a sentence is a reassurance, not a demand.
+_FEE_NEGATIONS = ("no fee", "no fees", "no charge", "no charges", "free of cost", "free of charge", "never ask",
+                  "never charge", "does not charge", "do not charge", "not charge", "no payment", "no registration fee",
+                  "without any fee", "zero fee")
+
+# Secrets a scammer wants (an OTP, PIN, password...) and the verbs used to ask for them.
+_SECRET_RE = re.compile(
+    r"\b(otp|one[- ]time password|pin|m-?pin|upi pin|password|passcode|cvv|verification code|security code|"
+    r"\d[- ]?digit code|code (?:shown|sent|received|you received)|code on your screen)\b"
+)
+_ASK_RE = re.compile(r"\b(share|send|tell|forward|give|provide|enter|type|read out|reply with|confirm)\b")
+
+# Money demands: imperative phrases only ("transfer Rs 500"), never reports ("Rs 500 transferred to you").
+_PAYMENT_RES = [
+    re.compile(p)
+    for p in (
+        r"\bpay now\b",
+        r"\bpay(?: a| the)?\s*(?:rs\.?|₹|inr)",
+        r"\bpay\b[^.]{0,40}\b(?:fee|charge|amount|bill)\b",
+        r"\bsend\s+(?:rs\.?|₹|inr|money|the amount|payment)",
+        r"\btransfer\s+(?:rs\.?|₹|inr|money|the amount|amount|funds)",
+        r"\bprocessing fee\b",
+        r"\bscan (?:the |this )?qr\b",
+        r"\bdeposit\s+(?:rs\.?|₹|inr)",
+        r"\bupi pin to receive\b",
+    )
+]
+
+# AI tactic names -> the rule that already covers that tactic (so the two merge instead of repeating)
+_AI_TO_RULE = (
+    (("otp", "credential", "password", "pin"), "message.otp_request"),
+    (("remote", "anydesk", "teamviewer", "screen"), "message.remote_access"),
+    (("job", "employment", "recruit", "task"), "message.job_fee"),
+    (("impersonat", "brand", "spoof"), "message.impersonation"),
+    (("kyc", "pan", "aadhaar", "suspension", "block", "deactivat", "threat"), "message.kyc_update"),
+    (("payment", "fee", "transfer", "money"), "message.payment_request"),
+    (("prize", "lottery", "reward", "refund", "cashback", "lure", "windfall"), "message.prize_or_refund"),
+    (("short",), "message.shortened_link"),
+    (("urgen", "pressure", "fear", "deadline"), "message.urgency"),
+    (("contact", "whatsapp", "call"), "message.suspicious_sender_contact"),
+)
+
+
+def _rule_for_tactic(name: str, rule_ids: set[str]) -> Optional[str]:
+    n = name.lower()
+    for keys, rule_id in _AI_TO_RULE:
+        if rule_id in rule_ids and any(k in n for k in keys):
+            return rule_id
+    return None
+
+
 def _split_into_sentences(text: str) -> list[str]:
     """Split text into sentences, avoiding splits inside URLs, decimals, and abbreviations."""
     raw = re.split(r"(?<=[.!?])\s+|\n+", text)
@@ -150,14 +201,14 @@ def run_scam_rules(
 
     # 1. OTP Request (High)
     # Exclude genuine security warnings (e.g. "never share your OTP", "do not share")
-    otp_phrases = ["share otp", "share your otp", "send the otp", "send your otp", "tell us the otp",
-                   "enter otp", "provide otp", "share code", "share pin", "share password", "share cvv"]
+    # A secret (OTP, PIN, password, "6 digit code"...) AND a verb asking for it in the same sentence.
+    # A plain "code" (referral or promo code) is not a secret; "never share your OTP" is a warning, not a request.
     otp_sentence = None
     for s in sentences:
         s_low = s.lower()
-        if any(neg in s_low for neg in ["never share", "do not share", "don't share", "should not share"]):
+        if any(neg in s_low for neg in ["never share", "do not share", "don't share", "should not share", "not to share"]):
             continue
-        if any(p in s_low for p in otp_phrases) or (("otp" in s_low or "code" in s_low) and any(w in s_low for w in ["share", "send", "tell", "forward"])):
+        if _SECRET_RE.search(s_low) and _ASK_RE.search(s_low):
             otp_sentence = s
             break
 
@@ -201,17 +252,19 @@ def run_scam_rules(
         )
 
     # 3. Job or Internship Fee Scam (High)
-    job_words = ["job", "internship", "selected for job", "selected for", "part time job", "work from home", "hiring", "data entry", "appointment letter"]
-    fee_words = ["fee", "deposit", "registration charge", "processing fee", "security deposit", "pay to start", "investment", "refundable registration"]
+    job_words = ["job", "internship", "selected for job", "selected for", "part time job", "part-time", "work from home",
+                 "hiring", "data entry", "appointment letter", "task", "earn rs", "earn ₹", "daily income", "per day",
+                 "like videos", "rate products"]
+    fee_words = ["fee", "deposit", "registration charge", "processing fee", "security deposit", "pay to start", "investment",
+                 "refundable registration", "unlock vip", "recharge"]
     job_sentence = None
+    # A fee in a sentence that says "no fee" / "free of cost" reassures; it is not a demand.
+    fee_sentences = [s for s in sentences
+                     if any(f in s.lower() for f in fee_words) and not any(n in s.lower() for n in _FEE_NEGATIONS)]
     has_job = any(j in text_lower for j in job_words)
-    has_fee = any(f in text_lower for f in fee_words)
+    has_fee = bool(fee_sentences)
     if has_job and has_fee:
-        for s in sentences:
-            s_low = s.lower()
-            if any(f in s_low for f in fee_words):
-                job_sentence = s
-                break
+        job_sentence = fee_sentences[0]
         if not job_sentence:
             for s in sentences:
                 s_low = s.lower()
@@ -291,37 +344,51 @@ def run_scam_rules(
             )
         )
 
-    # 6. Payment / Money Transfer Demands (Medium)
-    payment_words = ["pay now", "transfer", "pay ₹", "pay rs", "send money", "processing fee", "upi pin to receive", "scan qr", "deposit to"]
+    # 6. Payment / Money Transfer Demands
+    # Only a demand that comes with a way to pay counts (a link, a UPI ID or a phone number): "pay the semester fee
+    # by 15 Nov" in a college notice is not one. Paying a personal UPI ID straight from an SMS is Serious (high).
     payment_sentence = None
-    for s in sentences:
+    can_pay = bool(indicators["urls"] or indicators["upi_ids"] or indicators["phones"])
+    for s in sentences if can_pay else []:
         s_low = s.lower()
-        if any(w in s_low for w in payment_words):
+        if any(n in s_low for n in _FEE_NEGATIONS):
+            continue
+        if any(rx.search(s_low) for rx in _PAYMENT_RES):
             payment_sentence = s
             break
 
     if payment_sentence:
+        to_upi = bool(indicators["upi_ids"])
         matched_rules.append("message.payment_request")
         findings.append(
             Finding(
                 id="message.payment_request",
                 check="message",
-                title="Demands payment or money transfer",
-                severity=Severity.medium,
-                evidence=f'"{payment_sentence}"',
+                title="Demands payment to a personal UPI ID" if to_upi else "Demands payment or money transfer",
+                severity=Severity.high if to_upi else Severity.medium,
+                evidence=f'"{payment_sentence}"' + (f" (UPI ID: {indicators['upi_ids'][0]})" if to_upi else ""),
                 source="rule: payment_request",
-                impact="Coerces victims into transferring money under false pretenses.",
-                recommendation="Independently verify any payment request directly with the purported recipient.",
+                impact="Banks, colleges, courier and power companies do not collect fees by asking you to send money to "
+                       "a UPI ID in a text message." if to_upi else
+                       "Coerces victims into transferring money under false pretenses.",
+                recommendation="Pay only through the organisation's official website or app, never to a UPI ID sent "
+                               "in a message." if to_upi else
+                               "Independently verify any payment request directly with the purported recipient.",
             )
         )
 
     # 7. Lottery, Lucky Draw, or Unsolicited Refund (Medium)
-    prize_words = ["you have won", "lottery", "lucky draw", "cashback", "refund approved", "refund", "prize money",
-                   "selected winner", "claim your prize", "won rs", "won ₹", "reward point"]
+    prize_words = ["you have won", "lottery", "lucky draw", "prize money", "selected winner", "claim your prize",
+                   "won rs", "won ₹", "reward point", "reward points"]
+    # "Your refund has been processed" is a normal notice; a refund or cashback is only a lure when the message
+    # also asks you to click, claim, update or verify something, or carries a link.
+    refund_words = ["refund", "cashback"]
+    lure_words = ["claim", "click", "update", "verify", "redeem", "link", "share", "submit", "fill"]
+    has_lure = bool(indicators["urls"]) or any(w in text_lower for w in lure_words)
     prize_sentence = None
     for s in sentences:
         s_low = s.lower()
-        if any(w in s_low for w in prize_words):
+        if any(w in s_low for w in prize_words) or (has_lure and any(w in s_low for w in refund_words)):
             prize_sentence = s
             break
 
@@ -487,32 +554,34 @@ async def analyze(target: str) -> CheckResult:
                     "tactics_count": len(assessment.tactics),
                 }
 
-                # Verify each quote appears in the original text (Anti-hallucination check)
+                # The AI never decides the verdict on its own (AGENTS.md section 6):
+                # - if it says the message is not a scam, its tactics are not added;
+                # - when no rule fired, its findings are Minor (low) and cannot move the verdict;
+                # - only next to rule evidence may an AI-only finding be a Warning (medium), never more.
                 existing_finding_ids = {f.id for f in findings}
-                for tactic in assessment.tactics:
+                ai_severity = Severity.medium if findings else Severity.low
+                added_ai_ids: set[str] = set()
+                for tactic in (assessment.tactics if assessment.looks_like_scam else []):
                     quote = tactic.quote.strip()
                     # Check quote presence in original or masked text
                     if quote and (quote.lower() in raw_text.lower() or quote.lower() in masked.lower()):
                         tactic_id = f"message.ai_{re.sub(r'[^a-z0-9_]', '', tactic.name.lower()) or 'tactic'}"
 
                         # Check if a deterministic rule already covered this tactic
-                        matching_rule_id = next(
-                            (rid for rid in existing_finding_ids if tactic.name.lower() in rid.lower()),
-                            None,
-                        )
+                        matching_rule_id = _rule_for_tactic(tactic.name, existing_finding_ids)
                         if matching_rule_id:
-                            # Augment the existing rule finding with AI insights
+                            # Augment the existing rule finding with the AI's reasoning (once)
                             for f in findings:
-                                if f.id == matching_rule_id:
+                                if f.id == matching_rule_id and "(AI assessment:" not in (f.impact or ""):
                                     f.impact = f"{f.impact} (AI assessment: {tactic.why})"
-                        else:
-                            # AI-only finding is capped at Medium severity per AGENTS.md rules
+                        elif tactic_id not in added_ai_ids and tactic_id not in existing_finding_ids:
+                            added_ai_ids.add(tactic_id)
                             findings.append(
                                 Finding(
                                     id=tactic_id,
                                     check="message",
                                     title=f"AI detected: {tactic.name.replace('_', ' ').capitalize()}",
-                                    severity=Severity.medium,
+                                    severity=ai_severity,
                                     evidence=f'"{quote}"',
                                     source="AI analysis",
                                     impact=tactic.why,

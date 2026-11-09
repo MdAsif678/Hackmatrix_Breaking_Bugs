@@ -118,11 +118,23 @@ def test_ai_integration_with_mocked_llm():
         result = asyncio.run(analyze(msg))
         assert result.status == "ok"
         finding_ids = [f.id for f in result.findings]
-        assert "message.ai_pan_theft" in finding_ids
-        ai_finding = next(f for f in result.findings if f.id == "message.ai_pan_theft")
-        assert ai_finding.severity == Severity.medium
-        assert ai_finding.source == "AI analysis"
+        # "pan_theft" is what the PAN/KYC rule already found: the AI's reasoning is merged into it, not repeated
+        assert "message.ai_pan_theft" not in finding_ids
+        kyc = next(f for f in result.findings if f.id == "message.kyc_update")
+        assert "AI assessment: Fabricates document expiry" in kyc.impact
         assert result.data["ai"]["looks_like_scam"] is True
+
+
+def test_ai_only_tactic_beside_rule_evidence_is_a_warning():
+    msg = "Urgent: Your PAN card is expired. Update at http://phish.example immediately."
+    mock_assessment = MessageAssessment(
+        looks_like_scam=True,
+        tactics=[Tactic(name="fake_authority_claim", quote="Update at http://phish.example", why="Poses as an official portal.")],
+    )
+    with patch("app.analyzers.message_analyzer.llm_json", new=AsyncMock(return_value=mock_assessment)):
+        result = asyncio.run(analyze(msg))
+    ai_finding = next(f for f in result.findings if f.id == "message.ai_fake_authority_claim")
+    assert ai_finding.severity == Severity.medium and ai_finding.source == "AI analysis"
 
 
 def test_ai_hallucinated_quote_is_dropped():
