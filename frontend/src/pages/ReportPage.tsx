@@ -9,6 +9,7 @@ import { api } from '../api/client'
 import { CheckOverview, EvidenceConsole } from '../components/EvidenceConsole'
 import { CHECK_LABEL, RISK_META } from '../components/labels'
 import { PipelineSummary } from '../components/PipelineSummary'
+import { Card, CountUp, CoverageRing, Pill, WarningShare } from '../components/ReportCharts'
 import { RiskBadge } from '../components/RiskBadge'
 import { SeverityTag } from '../components/Severity'
 import { RegistryPanel } from '../features/registry/RegistryPanel'
@@ -92,13 +93,15 @@ function verdictReason(report: AnalysisReport, all: Finding[]): string {
   return `Main reason${titles.length > 1 ? 's' : ''}: ${titles.join('; ')}.`
 }
 
-function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: string }) {
+/** A stat card as in the reference: label, a pill in the corner, a big number, a short note. */
+function Stat({ label, pill, value, note, tone }: { label: string; pill?: ReactNode; value: ReactNode; note: ReactNode; tone?: string }) {
   return (
-    <div className="bg-ground px-5 py-5 sm:px-6">
-      <dt className="text-[13px] text-faint">{label}</dt>
-      <dd className={`mt-1.5 text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums ${tone ?? 'text-ink'}`}>{value}</dd>
-      {sub && <dd className="mt-2 text-[13px] text-faint">{sub}</dd>}
-    </div>
+    <Card label={label} aside={pill}>
+      <p className={`mt-5 flex items-baseline gap-2 text-[34px] font-medium leading-none tracking-[-0.03em] tabular-nums ${tone ?? 'text-ink'}`}>
+        {value}
+      </p>
+      <p className="mt-2 text-[13px] text-faint">{note}</p>
+    </Card>
   )
 }
 
@@ -152,20 +155,49 @@ export default function ReportPage() {
 
       {/* The numbers behind it, all straight from the report */}
       <Rise i={2}>
-        <dl className="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line lg:grid-cols-4">
-          <Stat label="Checks that ran" value={`${ran} of ${report.checks.length}`} sub={`${Math.round(report.coverage * 100)}% coverage`} />
-          <Stat label="Serious findings" value={serious} tone={serious ? 'text-risk-high' : undefined} sub="Danger or Serious" />
-          <Stat label="Warnings" value={warnings} tone={warnings ? 'text-risk-suspicious' : undefined} sub="Worth a closer look" />
+        <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
-            label="Blockchain seal"
-            value={report.chain ? `#${report.chain.chain_report_id}` : 'None'}
-            sub={report.chain ? `On ${report.chain.network}` : 'Not sealed yet'}
+            label="Checks ran"
+            pill={<Pill tone={ran === report.checks.length ? 'good' : 'warn'}>{Math.round(report.coverage * 100)}%</Pill>}
+            value={
+              <>
+                <CountUp value={ran} />
+                <span className="text-[18px] text-faint">of {report.checks.length}</span>
+              </>
+            }
+            note="Each check runs on its own"
           />
-        </dl>
+          <Stat
+            label="Serious"
+            pill={<Pill tone={serious ? 'bad' : 'good'}>{serious ? 'Found' : 'None'}</Pill>}
+            value={<CountUp value={serious} />}
+            tone={serious ? 'text-risk-high' : undefined}
+            note="Danger or Serious findings"
+          />
+          <Stat
+            label="Warnings"
+            pill={<Pill tone={warnings ? 'warn' : 'good'}>{warnings ? 'Found' : 'None'}</Pill>}
+            value={<CountUp value={warnings} />}
+            tone={warnings ? 'text-risk-suspicious' : undefined}
+            note="Worth a closer look"
+          />
+          <Stat
+            label="Seal"
+            pill={<Pill tone={report.chain ? 'good' : 'neutral'}>{report.chain ? 'Sealed' : 'Not yet'}</Pill>}
+            value={report.chain ? `#${report.chain.chain_report_id}` : 'None'}
+            note={report.chain ? `On ${report.chain.network}` : 'Not on the blockchain yet'}
+          />
+        </div>
+      </Rise>
+
+      {/* The percentages: where the warnings came from, and how much of the evidence could be gathered */}
+      <Rise i={3} className="mt-3 grid gap-3 lg:grid-cols-3">
+        <WarningShare checks={report.checks} className="lg:col-span-2" />
+        <CoverageRing report={report} />
       </Rise>
 
       {/* How the report was made: the pipeline, compact */}
-      <Rise i={3} className="mt-8">
+      <Rise i={4} className="mt-10">
         <p className="mb-4 text-[13px] text-faint">How this was checked</p>
         <PipelineSummary report={report} />
       </Rise>
