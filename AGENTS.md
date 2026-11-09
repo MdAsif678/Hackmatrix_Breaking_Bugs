@@ -308,7 +308,7 @@ Everything below already exists and runs (`python -m pytest -q` in `backend/` pa
     email, phone, UPI id, similar text), `registry/chain.py` + the smart contract (works on the local Hardhat chain; needs `.env` values — until then
     registry endpoints return **501** with the list of what's missing).
   - `backend/scripts/tamper_report.py <id>` — demo: alters a stored report so verification shows a mismatch.
-- **Correlation reads these keys if present:** dns `data["a_records"]`/`["aaaa_records"]`, any check's `data["ip"]`,
+- **Correlation reads these keys if present:** dns `data["dns_records"]["A"/"AAAA"]` (or `a_records`/`aaaa_records`), any check's `data["ip"]`,
   message `data["indicators"]` (`emails`, `phones`, `upi_ids`).
 - Frontend: Investigate page (URL + message tabs), Report page, History page, Verify page, Registry panel.
 - `backend/data/brands.json`: starter list of brands + official domains for typosquatting checks (P2 extends).

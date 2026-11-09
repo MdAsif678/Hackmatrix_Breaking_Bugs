@@ -94,6 +94,74 @@ CREDENTIAL_KEYWORDS = {
 }
 
 
+# Current public-suffix list (downloaded once and cached; falls back to the bundled copy offline).
+# Needed so new endings such as .bank.in (Indian banks) are understood: sbi.bank.in != hdfc.bank.in.
+_tld = tldextract.TLDExtract()
+
+# Country-code endings that scammers often register: a brand name on these is NOT treated as a regional site.
+_ABUSED_CCTLDS = {"co", "cc", "tk", "ml", "ga", "cf", "gq", "ws", "to", "su", "pw", "cm", "nu", "ly"}
+
+# Words that turn "brand name in the link" into a strong phishing signal (login pages, KYC, refunds...).
+SCAM_CONTEXT_WORDS = {
+    "login", "signin", "verify", "verification", "update", "secure", "security", "account", "kyc", "password",
+    "refund", "reward", "claim", "support", "help", "helpdesk", "bonus", "prize", "pay", "payment", "billing",
+    "unlock", "unblock", "blocked", "suspend", "suspended", "confirm", "otp", "auth", "wallet", "gift", "offer",
+}
+
+# Characters scammers swap in for letters: paypa1 -> paypal, amaz0n -> amazon, rn -> m
+_LOOKALIKE_SETS = (
+    str.maketrans({"0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "9": "g", "$": "s"}),
+    str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "9": "g", "$": "s"}),
+)
+
+
+def _split(host: str) -> tuple[str, str, str, str]:
+    """(subdomain, label, suffix, registered) using the current public-suffix list."""
+    ext = _tld(host)
+    sub, label, suffix = (ext.subdomain or "").lower(), (ext.domain or "").lower(), (ext.suffix or "").lower()
+    return sub, label, suffix, f"{label}.{suffix}" if suffix else label
+
+
+def _deconfused(s: str) -> set[str]:
+    return {s.translate(t).replace("rn", "m").replace("vv", "w") for t in _LOOKALIKE_SETS}
+
+
+def _typosquat_reason(candidate: str, brand_label: str, whole_label: bool) -> Optional[str]:
+    """Why `candidate` looks like a fake of `brand_label`, or None.
+
+    - look-alike characters (paypa1, amaz0n, g00gle) always count
+    - otherwise small spelling differences: whole domain label 1 letter off (2 for long names);
+      a hyphen-separated part 1 letter off only for names of 6+ letters (avoids "apply" vs "apple")
+    """
+    if candidate == brand_label or len(brand_label) < 5 or len(candidate) < 4:
+        return None
+    if brand_label in _deconfused(candidate):
+        return "uses look-alike characters"
+    dist = _levenshtein_distance(candidate, brand_label)
+    if whole_label:
+        limit = 1 if len(brand_label) <= 7 else 2
+        if 1 <= dist <= limit:
+            return f"{dist} character(s) different"
+    elif len(brand_label) >= 6 and dist == 1:
+        return "1 character different"
+    return None
+
+
+def _is_regional(label: str, suffix: str, official_labels: set[str]) -> bool:
+    """google.co.in / amazon.co.uk: the brand's own name on a country ending."""
+    last = suffix.rsplit(".", 1)[-1]
+    return label in official_labels and len(last) == 2 and last not in _ABUSED_CCTLDS
+
+
+def _brand_of(registered: str, label: str, suffix: str, brands: list[dict[str, Any]]) -> Optional[str]:
+    """Name of the brand that officially owns this domain (incl. its regional sites), else None."""
+    for brand in brands:
+        official = [d.lower() for d in brand.get("official_domains", [])]
+        if registered in official or _is_regional(label, suffix, {_split(d)[1] for d in official}):
+            return brand.get("name")
+    return None
+
+
 def _levenshtein_distance(s1: str, s2: str) -> int:
     """Calculate edit distance between two strings."""
     if len(s1) < len(s2):
@@ -164,11 +232,7 @@ async def analyze(target: str) -> CheckResult:
         query = parts.query or ""
 
         # Extract domain components
-        ext = tldextract.extract(host)
-        subdomain = ext.subdomain.lower() if ext.subdomain else ""
-        domain = ext.domain.lower() if ext.domain else ""
-        suffix = ext.suffix.lower() if ext.suffix else ""
-        registered = f"{domain}.{suffix}" if suffix else domain
+        subdomain, domain, suffix, registered = _split(host)
 
         # Check for IP address host
         is_ip = False
@@ -249,66 +313,79 @@ async def analyze(target: str) -> CheckResult:
         # Typosquatting and Brand Spoofing checks
         brands = _load_brands()
         host_tokens = set(re.split(r"[-._]", host))
-        domain_tokens = set(re.split(r"[-_]", domain))
+        domain_tokens = [t for t in re.split(r"[-_]", domain) if t]
+        context_words = sorted((host_tokens | set(re.split(r"[/._-]", path.lower()))) & SCAM_CONTEXT_WORDS)
+        owner_brand = _brand_of(registered, domain, suffix, brands)
 
         typosquat_found = False
         brand_subdomain_found = False
 
-        for brand in brands:
+        for brand in brands if owner_brand is None else []:  # official/regional brand sites skip brand checks
             brand_name = brand.get("name", "Unknown Brand")
             official_domains = [d.lower() for d in brand.get("official_domains", [])]
+            official_labels = {_split(d)[1] for d in official_domains}
             keywords = [k.lower() for k in brand.get("keywords", [])]
 
-            # If this is legitimately the brand's official domain, skip brand attacks
-            if registered in official_domains:
-                continue
-
-            # 1. Typosquatting check (edit distance 1-2 on domain name, min length 5)
+            # 1. Typosquatting: look-alike characters or tiny spelling differences
             if not typosquat_found and domain:
                 for off_dom in official_domains:
-                    off_ext = tldextract.extract(off_dom)
-                    off_domain = off_ext.domain.lower()
-                    if len(off_domain) < 5:
-                        continue
-
-                    # Check overall domain and domain tokens
-                    candidates = [domain] + list(domain_tokens)
-                    for cand in candidates:
-                        if len(cand) >= 5 and cand != off_domain:
-                            dist = _levenshtein_distance(cand, off_domain)
-                            if 1 <= dist <= 2:
-                                findings.append(
-                                    Finding(
-                                        id="url.typosquat",
-                                        check="url",
-                                        title=f"Domain imitates {off_dom}",
-                                        severity=Severity.high,
-                                        evidence=f"Domain label '{cand}' is {dist} character(s) away from official brand domain '{off_dom}'.",
-                                        source="lexical analysis",
-                                        impact=f"Users may believe they are visiting the legitimate {brand_name} service.",
-                                        recommendation=f"Type {off_dom} yourself instead of clicking the link.",
-                                    )
+                    off_label = _split(off_dom)[1]
+                    candidates = [(domain, True)] + [(t, False) for t in domain_tokens if t != domain]
+                    for cand, whole in candidates:
+                        reason = _typosquat_reason(cand, off_label, whole)
+                        if reason:
+                            findings.append(
+                                Finding(
+                                    id="url.typosquat",
+                                    check="url",
+                                    title=f"Domain imitates {off_dom}",
+                                    severity=Severity.high,
+                                    evidence=f"Domain label '{cand}' imitates official brand domain '{off_dom}' ({reason}).",
+                                    source="lexical analysis",
+                                    impact=f"Users may believe they are visiting the legitimate {brand_name} service.",
+                                    recommendation=f"Type {off_dom} yourself instead of clicking the link.",
                                 )
-                                typosquat_found = True
-                                break
+                            )
+                            typosquat_found = True
+                            break
                     if typosquat_found:
                         break
 
-            # 2. Brand in host/subdomain check
+            # 2. Brand name used on a domain the brand doesn't own
             if not brand_subdomain_found:
+                if domain in official_labels:
+                    # e.g. paypal.top / paypal.co: exact brand name on an unofficial, non-regional ending
+                    findings.append(
+                        Finding(
+                            id="url.brand_unofficial_domain",
+                            check="url",
+                            title=f"'{brand_name}' name on an unofficial domain ending",
+                            severity=Severity.high if context_words else Severity.medium,
+                            evidence=f"'{registered}' uses the brand name but {brand_name}'s official domains are "
+                                     f"{', '.join(official_domains)}"
+                                     + (f"; scam words present: {', '.join(context_words)}" if context_words else "") + ".",
+                            source="lexical analysis",
+                            impact="Scammers register brand names on cheap or unusual domain endings.",
+                            recommendation=f"Use {official_domains[0]} directly.",
+                        )
+                    )
+                    brand_subdomain_found = True
+                    continue
                 for kw in keywords:
-                    if kw in host_tokens or (subdomain and kw in subdomain.split(".")):
-                        # Make sure kw isn't just matching legitimate domain part
+                    if kw in host_tokens:
+                        strong = bool(context_words)
                         findings.append(
                             Finding(
                                 id="url.brand_in_subdomain",
                                 check="url",
-                                title=f"Brand '{brand_name}' keyword in unauthorized domain",
-                                severity=Severity.high,
-                                evidence=f"Host '{host}' contains brand keyword '{kw}', but registered domain '{registered}' is not in official domains for {brand_name} ({', '.join(official_domains)}).",
+                                title=f"Brand '{brand_name}' name used on a domain it doesn't own",
+                                severity=Severity.high if strong else Severity.medium,
+                                evidence=f"Host '{host}' contains brand keyword '{kw}', but registered domain '{registered}' "
+                                         f"is not an official {brand_name} domain ({', '.join(official_domains)})"
+                                         + (f"; scam words present: {', '.join(context_words)}" if strong else "") + ".",
                                 source="lexical analysis",
-                                impact=f"Attackers prepend trusted brand names like '{kw}' to deceive victims.",
-                                recommendation=f"Verify official domain is {', '.join(official_domains)}.",
+                                impact=f"Attackers put trusted brand names like '{kw}' into their own domains to deceive victims.",
+                                recommendation=f"Verify the official domain is {', '.join(official_domains)}.",
                             )
                         )
                         brand_subdomain_found = True
@@ -441,25 +518,26 @@ async def analyze(target: str) -> CheckResult:
         try:
             from app.core.safe_fetch import safe_fetch
             resp = await safe_fetch(target)
-            if resp.redirect_chain:
-                data["redirect_chain"] = resp.redirect_chain
-                final_ext = tldextract.extract((urlsplit(resp.final_url).hostname or "").lower())
-                final_reg = f"{final_ext.domain}.{final_ext.suffix}" if final_ext.suffix else final_ext.domain
-                if final_reg and registered and final_reg.lower() != registered.lower():
-                    findings.append(
-                        Finding(
-                            id="url.cross_domain_redirect",
-                            check="url",
-                            title="Cross-domain redirect detected",
-                            severity=Severity.medium,
-                            evidence=f"Starting domain '{registered}' redirects across domains to '{final_reg}' ({resp.final_url}).",
-                            source="HTTP redirects",
-                            impact="Users may start on one domain and be transparently forwarded to a different entity.",
-                            recommendation="Confirm that the redirection destination is trustworthy.",
-                        )
+            data["redirect_chain"] = resp.redirect_chain
+            _, final_label, final_suffix, final_reg = _split((urlsplit(resp.final_url).hostname or "").lower())
+            same_owner = final_label == domain or (
+                owner_brand is not None and owner_brand == _brand_of(final_reg, final_label, final_suffix, brands)
+            )
+            if final_reg and registered and final_reg != registered and not same_owner:
+                findings.append(
+                    Finding(
+                        id="url.cross_domain_redirect",
+                        check="url",
+                        title="Link redirects to a different website",
+                        severity=Severity.medium,
+                        evidence=f"'{registered}' redirects to '{final_reg}' ({resp.final_url}).",
+                        source="HTTP redirects",
+                        impact="Users may start on one domain and be transparently forwarded to a different entity.",
+                        recommendation="Confirm that the redirection destination is trustworthy.",
                     )
-        except (NotImplementedError, Exception):
-            pass
+                )
+        except Exception as exc:  # site unreachable, blocked by SSRF guard, timeout...
+            limitations.append(f"Redirect check unavailable: {type(exc).__name__}")
 
         return CheckResult(
             check="url",

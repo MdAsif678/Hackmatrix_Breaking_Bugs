@@ -1,4 +1,4 @@
-"""Threat-intel lookups: URLhaus, OpenPhish, Google Safe Browsing. Set authoritative=True on a match.
+"""Threat-intel lookups: OpenPhish, Phishing Army, URLhaus, Google Safe Browsing. authoritative=True on an exact URL match.
 
 Owner: P2. Guide: docs/tasks/P2-security.md
 """
@@ -56,6 +56,34 @@ async def _get_openphish_feed() -> tuple[set[str], set[str], str | None]:
             return _openphish_cache["urls"], _openphish_cache["hosts"], f"OpenPhish download failed: {type(exc).__name__}"
 
 
+# Phishing Army: free community blocklist of ~140k phishing domains aggregated from PhishTank, OpenPhish,
+# CERT.PL, urlscan.io, PhishStats and others. No API key needed. Refreshed at most every 6 hours.
+PHISHING_ARMY_URL = "https://phishing.army/download/phishing_army_blocklist.txt"
+_phishing_army_cache: dict[str, Any] = {"hosts": set(), "timestamp": 0.0}
+_phishing_army_lock = asyncio.Lock()
+
+
+async def _get_phishing_army() -> tuple[set[str], str | None]:
+    now = time.time()
+    async with _phishing_army_lock:
+        if _phishing_army_cache["timestamp"] > 0 and now - _phishing_army_cache["timestamp"] < 6 * 3600:
+            return _phishing_army_cache["hosts"], None
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(PHISHING_ARMY_URL, follow_redirects=True)
+            if resp.status_code != 200:
+                return _phishing_army_cache["hosts"], f"Phishing Army HTTP status {resp.status_code}"
+            hosts = {
+                line.strip().lower()
+                for line in resp.text.splitlines()
+                if line.strip() and not line.startswith("#")
+            }
+            _phishing_army_cache.update(hosts=hosts, timestamp=now)
+            return hosts, None
+        except Exception as exc:
+            return _phishing_army_cache["hosts"], f"Phishing Army download failed: {type(exc).__name__}"
+
+
 async def analyze(target: str) -> CheckResult:
     """Query threat intelligence feeds for target URL and host."""
     try:
@@ -68,8 +96,10 @@ async def analyze(target: str) -> CheckResult:
         host = (parts.hostname or "").lower()
         normalized_url = raw_target.lower().rstrip("/")
 
-        # 1. OpenPhish Free Feed
-        feed_urls, feed_hosts, feed_err = await _get_openphish_feed()
+        # 1. OpenPhish Free Feed (+ Phishing Army downloaded at the same time)
+        (feed_urls, feed_hosts, feed_err), (army_hosts, army_err) = await asyncio.gather(
+            _get_openphish_feed(), _get_phishing_army()
+        )
         if feed_err and not feed_urls:
             limitations.append(f"OpenPhish check unavailable ({feed_err}).")
         else:
@@ -99,6 +129,30 @@ async def analyze(target: str) -> CheckResult:
                         source="OpenPhish",
                         impact="While this specific URL path was not listed, the host is actively serving phishing pages.",
                         recommendation="Exercise high caution; avoid visiting this host.",
+                        authoritative=False,
+                    )
+                )
+
+        # 1b. Phishing Army domain blocklist (exact host match; skipped if OpenPhish already matched the URL)
+        if army_err and not army_hosts:
+            limitations.append(f"Phishing Army check unavailable ({army_err}).")
+        else:
+            sources_checked.append("Phishing Army")
+            bare_host = host.removeprefix("www.")
+            already = any(f.id == "threat_intel.openphish" for f in findings)
+            if not already and (host in army_hosts or bare_host in army_hosts):
+                findings.append(
+                    Finding(
+                        id="threat_intel.phishing_army",
+                        check="threat_intel",
+                        title="Domain listed on the Phishing Army blocklist",
+                        severity=Severity.high,
+                        evidence=f"Host '{host}' is on the Phishing Army community blocklist "
+                                 f"({len(army_hosts):,} phishing domains aggregated from PhishTank, OpenPhish, "
+                                 "CERT.PL, urlscan.io and others).",
+                        source="Phishing Army",
+                        impact="This domain has been reported as hosting phishing by independent threat-intelligence sources.",
+                        recommendation="Do not enter any information on this site.",
                         authoritative=False,
                     )
                 )
@@ -216,7 +270,7 @@ async def analyze(target: str) -> CheckResult:
 
         return CheckResult(
             check="threat_intel",
-            status="ok",
+            status="ok" if sources_checked else "error",
             findings=findings,
             data=data,
             limitations=limitations,

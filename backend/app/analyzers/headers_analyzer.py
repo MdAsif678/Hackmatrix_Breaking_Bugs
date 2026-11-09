@@ -154,6 +154,7 @@ async def analyze(target: str) -> CheckResult:
         findings: list[Finding] = []
         limitations: list[str] = []
         data: dict[str, Any] = {}
+        status = "ok"
 
         try:
             from app.core.safe_fetch import safe_fetch
@@ -166,14 +167,13 @@ async def analyze(target: str) -> CheckResult:
                 "headers": dict(resp.headers),
                 "redirect_chain": resp.redirect_chain,
             }
-        except NotImplementedError:
-            limitations.append("Passive security headers check waiting for P1's safe_fetch implementation.")
-        except Exception as exc:
-            limitations.append(f"HTTP fetch failed: {type(exc).__name__}: {exc}")
+        except Exception as exc:  # unreachable, blocked by the SSRF guard, timeout...
+            status = "error"
+            limitations.append(f"Website could not be fetched, headers not checked: {type(exc).__name__}: {exc}")
 
         return CheckResult(
             check="headers",
-            status="ok",
+            status=status,
             findings=findings,
             data=data,
             limitations=limitations,

@@ -17,7 +17,9 @@ import tldextract
 from app import db
 from app.schemas import AnalysisReport, CorrelationResult, RelatedReport
 
-_tld = tldextract.TLDExtract(suffix_list_urls=())  # bundled public-suffix list, no network
+# Current public-suffix list (downloaded once and cached; bundled copy if offline) so new endings like
+# .bank.in are understood: sbi.bank.in and hdfc.bank.in are different sites.
+_tld = tldextract.TLDExtract()
 
 
 def registrable_domain(host: str) -> str:
@@ -91,6 +93,11 @@ def extract_indicators(report: AnalysisReport) -> set[tuple[str, str]]:
         for key in ("a_records", "aaaa_records", "ips"):
             if isinstance(c.data.get(key), list):
                 ips.extend(v for v in c.data[key] if isinstance(v, str))
+        records = c.data.get("dns_records")  # P2's dns_analyzer format: {"A": [...], "AAAA": [...], ...}
+        if isinstance(records, dict):
+            for rtype in ("A", "AAAA"):
+                if isinstance(records.get(rtype), list):
+                    ips.extend(v for v in records[rtype] if isinstance(v, str))
         for ip in ips:
             try:
                 items.add(("ip", str(ipaddress.ip_address(ip))))
@@ -144,15 +151,19 @@ def find_related(report: AnalysisReport) -> list[str]:
 
 
 def _site(report: AnalysisReport) -> str | None:
-    """The registrable domain a URL report is about (None for messages)."""
+    """The exact website (host, ignoring a leading "www.") a URL report is about; None for messages.
+
+    expired.badssl.com and revoked.badssl.com are different websites: they are linked as related
+    ("same domain: badssl.com"), not counted as "checked before".
+    """
     if report.input_type == "message" or not report.normalized_target:
         return None
-    host = _host(report.normalized_target)
-    return _registrable(host)[1] if host else None
+    host = _host(report.normalized_target).lower().rstrip(".")
+    return host.removeprefix("www.") or None
 
 
 def relation(report: AnalysisReport, other: AnalysisReport) -> str:
-    """same_site = the same website checked again; campaign = a different site/message sharing indicators."""
+    """same_site = the exact same website checked again; campaign = a different site/message sharing indicators."""
     mine = _site(report)
     return "same_site" if mine is not None and mine == _site(other) else "campaign"
 

@@ -97,6 +97,13 @@ Our threat intelligence analyzer (`backend/app/analyzers/threat_intel.py`) queri
 1. **URLhaus (abuse.ch)**: Real-time queries for known malware distribution URLs and hosts via URLhaus API. Exact URL matches yield `threat_intel.urlhaus` (Critical, Authoritative); host-only matches yield `threat_intel.urlhaus_host` (High).
 2. **OpenPhish**: Ingests the OpenPhish global active phishing feed, cached locally for 1 hour. Exact URL matches produce `threat_intel.openphish` (Critical, Authoritative); host matches produce `threat_intel.openphish_host` (High).
 3. **Google Safe Browsing (v4)**: Queries Google ThreatMatches API for malware, social engineering, and unwanted software (Critical, Authoritative).
+4. **Phishing Army** (no API key needed): community blocklist of ~140,000 phishing domains aggregated from PhishTank,
+   OpenPhish, CERT.PL, urlscan.io, PhishStats and others, cached for 6 hours. An exact host match yields
+   `threat_intel.phishing_army` (High, not authoritative, because it is a domain-level list). Checked against major
+   genuine platforms (google.com, github.io, pages.dev, vercel.app, bank domains…) with no matches.
+
+Sources without a configured API key (URLhaus, Google Safe Browsing) are skipped and listed as limitations. If **no**
+source could be checked, the check reports `status="error"` so the report's coverage stays honest.
 
 ## AI safety (prompt injection, evidence grounding, privacy) — P1 + P3
 

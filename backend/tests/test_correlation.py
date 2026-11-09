@@ -31,7 +31,7 @@ def test_same_registrable_domain_linked_across_subdomains():
     assert engine.find_related(b) == [a.id]
     details = engine.related_details(a).related  # live: earlier report sees the later one too
     assert details[0].report_id == b.id and "same domain: sbi-kyc-update.com" in details[0].shared_indicators
-    assert details[0].relation == "same_site"  # same website checked again, not a "campaign"
+    assert details[0].relation == "campaign"  # different subdomains = related sites, not "checked before"
 
 
 def test_different_messages_linked_by_payment_id_and_phone():
@@ -75,3 +75,20 @@ def test_unrelated_reports_not_linked():
     make(target="https://github.com/")
     b = make(target="https://example.org/")
     assert engine.find_related(b) == []
+
+
+def test_dns_records_from_p2_format_are_used():
+    dns = lambda: [CheckResult(check="dns", status="ok", data={"dns_records": {"A": ["198.51.100.7"], "AAAA": []}})]
+    a = make(target="https://scam-one.com/", checks=dns())
+    b = make(target="https://scam-two.net/", checks=dns())
+    related = engine.related_details(b).related
+    assert related[0].report_id == a.id and "same server IP: 198.51.100.7" in related[0].shared_indicators
+
+
+def test_exact_same_website_is_checked_before():
+    a = make(target="https://www.expired.badssl.com/")
+    b = make(target="https://expired.badssl.com/login")  # same host (www ignored), different page
+    c = make(target="https://revoked.badssl.com/")  # same domain, different website
+    rel = {r.report_id: r.relation for r in engine.related_details(b).related}
+    assert rel[a.id] == "same_site"
+    assert rel[c.id] == "campaign"
