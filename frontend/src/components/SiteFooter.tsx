@@ -61,7 +61,7 @@ export function SiteFooter({ children }: { children?: ReactNode }) {
                 <span className="absolute inset-0 animate-ping rounded-full bg-link/60" />
                 <span className="relative h-2 w-2 rounded-full bg-link" />
               </span>
-              Built for HackMatrix 2026
+              Team Breaking Bugs · Built for HackMatrix 2026
             </div>
             <p className="mt-3 max-w-[40ch] text-[13px] leading-relaxed text-faint">
               AI-Powered Web Threat Detection and Digital Trust Intelligence
@@ -76,7 +76,7 @@ export function SiteFooter({ children }: { children?: ReactNode }) {
             </ul>
           </nav>
           <nav aria-label="Made by" className="lg:col-span-4">
-            <h3 className="t-label">Made by</h3>
+            <h3 className="t-label">Made by Breaking Bugs</h3>
             <ul className="mt-3 space-y-2 text-[14px] sm:text-[15px]">
               {TEAM.map(([name, user]) => (
                 <li key={user}>
@@ -106,7 +106,7 @@ export function SiteFooter({ children }: { children?: ReactNode }) {
         </div>
 
         <div className="mt-12 flex flex-col gap-2 border-t border-line pt-6 text-[13px] text-faint sm:flex-row sm:justify-between">
-          <p>TrustLens, 2026. Built for HackMatrix.</p>
+          <p>TrustLens, 2026. Built by Team Breaking Bugs for HackMatrix.</p>
           <p>Automated checks cannot prove a website is safe. Never share a password, OTP or card number.</p>
         </div>
       </div>

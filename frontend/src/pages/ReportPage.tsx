@@ -2,10 +2,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import { CheckSection } from '../components/CheckSection'
-import { CHECK_LABEL, RISK_META } from '../components/labels'
+import { CHECK_LABEL } from '../components/labels'
 import { RiskBadge } from '../components/RiskBadge'
-import { SeverityLegend, SeverityTag } from '../components/Severity'
+import { SeverityTag } from '../components/Severity'
+import { EvidenceConsole } from '../components/EvidenceConsole'
+import { OverviewStatCards } from '../components/dashboard/OverviewStatCards'
+import { SecurityPostureGauge } from '../components/dashboard/SecurityPostureGauge'
+import { ThreatDistributionCard } from '../components/dashboard/ThreatDistributionCard'
+import { PipelineTimeline } from '../components/dashboard/PipelineTimeline'
 import { RegistryPanel } from '../features/registry/RegistryPanel'
 import type { AnalysisReport, Finding, RelatedReport, Severity } from '../types'
 
@@ -90,44 +94,57 @@ export default function ReportPage() {
 
   const allFindings = report.checks.flatMap((c) => c.findings)
   const findingsById = new Map(allFindings.map((f) => [f.id, f]))
-  const findingsCount = allFindings.length
-  const ran = report.checks.filter((c) => c.status === 'ok').length
   const sameSite = related.filter((r) => r.relation === 'same_site')
   const campaign = related.filter((r) => r.relation !== 'same_site')
   const indicatorEntries = Object.entries(report.extracted_indicators).filter(([, v]) => v.length > 0)
-  const target = report.input_type === 'message' ? 'Pasted message' : report.normalized_target ?? report.input
+
+  const targetLabel =
+    report.input_type === 'message'
+      ? 'Pasted Message / SMS'
+      : report.normalized_target ?? report.input
 
   return (
-    <div>
-      <Link to="/check" className="link text-[14px] text-muted">
-        New check
-      </Link>
+    <div className="space-y-8">
+      {/* Top Breadcrumb & Metadata */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+        <div className="flex items-center gap-3">
+          <Link to="/check" className="link text-[13px] text-muted">
+            ← Back to Checker
+          </Link>
+          <span className="text-line-strong">/</span>
+          <span className="font-mono text-[13px] text-faint truncate max-w-md">
+            {targetLabel}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-faint font-mono">
+          <span>Analyzed {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          <span>·</span>
+          <span>{report.id.slice(0, 8)}</span>
+        </div>
+      </div>
 
-      {/* Verdict */}
-      <header className="mt-6 border-b border-line pb-8">
-        <RiskBadge level={report.risk_level} size="lg" />
-        <h1 className="mt-4 break-all font-mono text-[clamp(20px,1.2vw+14px,28px)] leading-snug tracking-[-0.01em]" title={report.input}>
-          {target}
-        </h1>
-        <p className="mt-2 text-[14px] text-faint">
-          {new Date(report.created_at).toLocaleString()} · {ran} of {report.checks.length} checks ran · {findingsCount}{' '}
-          finding{findingsCount === 1 ? '' : 's'}
-        </p>
-        <p className="mt-4 max-w-[62ch] text-[16px] text-muted">
-          {RISK_META[report.risk_level].description} {verdictReason(report, allFindings)}
-        </p>
-      </header>
+      {/* 1. Overview Stat Cards Row (Inspired by CyberShield Dashboard Top Cards) */}
+      <div id="overview-top">
+        <OverviewStatCards report={report} findings={allFindings} />
+      </div>
 
-      <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-6">
-        <div className="min-w-0 space-y-12 lg:col-span-8">
+      {/* 2. Visual Intelligence Split (Security Posture Gauge + Analyzer Distribution) */}
+      <div id="posture-gauge" className="grid gap-6 lg:grid-cols-2">
+        <SecurityPostureGauge report={report} reason={verdictReason(report, allFindings)} />
+        <ThreatDistributionCard checks={report.checks} />
+      </div>
+
+      {/* 3. Main Workspace: Evidence Console (Left) + Intelligence Actions (Right) */}
+      <div className="grid gap-8 lg:grid-cols-12 lg:gap-6">
+        <div className="min-w-0 space-y-8 lg:col-span-8">
           {report.explanation && (
-            <section>
-              <h2 className="t-label">What this means</h2>
-              <p className="mt-2 max-w-[62ch] border-l-2 border-action pl-4 text-[18px] leading-relaxed">
+            <section id="ai-grounding" className="panel border border-line bg-raised p-5 sm:p-6">
+              <h2 className="text-[14px] font-medium text-ink">AI Evidence Grounding & Threat Synthesis</h2>
+              <p className="mt-3 max-w-[64ch] border-l-2 border-link pl-4 text-[16px] leading-relaxed text-ink">
                 {report.explanation.summary}
               </p>
               {report.explanation.key_points.length > 0 && (
-                <ul className="mt-4 divide-y divide-line border-y border-line">
+                <ul className="mt-5 divide-y divide-line border-t border-line">
                   {report.explanation.key_points.map((k) => (
                     <KeyPoint key={k} text={k} findings={findingsById} />
                   ))}
@@ -137,15 +154,17 @@ export default function ReportPage() {
           )}
 
           {report.input_type === 'message' && (
-            <section>
-              <h2 className="t-label">The message you pasted</h2>
-              <p className="panel mt-2 whitespace-pre-wrap p-4 text-[15px] leading-relaxed text-muted">{report.input}</p>
+            <section className="panel border border-line bg-raised p-5 sm:p-6">
+              <h2 className="text-[14px] font-medium text-ink">Extracted Message Content & Telemetry</h2>
+              <p className="mt-3 whitespace-pre-wrap rounded-md border border-line bg-sunken p-4 font-mono text-[13px] leading-relaxed text-muted">
+                {report.input}
+              </p>
               {indicatorEntries.length > 0 && (
-                <dl className="mt-4 grid gap-2 text-[14px]">
+                <dl className="mt-4 grid gap-2.5 text-[13px]">
                   {indicatorEntries.map(([kind, values]) => (
-                    <div key={kind} className="grid grid-cols-[110px_1fr] gap-3">
+                    <div key={kind} className="grid grid-cols-[120px_1fr] gap-3">
                       <dt className="capitalize text-faint">{kind.replace('_', ' ')}</dt>
-                      <dd className="grid gap-1 break-all font-mono text-[13px] text-ink">
+                      <dd className="grid gap-1 break-all font-mono text-[12px] text-ink">
                         {values.map((v) => (
                           <span key={v}>{v}</span>
                         ))}
@@ -157,27 +176,27 @@ export default function ReportPage() {
             </section>
           )}
 
-          <section>
-            <h2 className="t-h3">Evidence by check</h2>
-            <p className="mt-1 text-[15px] text-muted">What each check looked at, what it found and how serious it is.</p>
-            <div className="panel mt-4 px-5 py-4">
-              <SeverityLegend />
-            </div>
-            <div className="mt-4 grid gap-4">
-              {report.checks.map((c, i) => (
-                <CheckSection key={`${c.check}-${c.target}-${i}`} check={c} />
-              ))}
-            </div>
-          </section>
+          {/* Interactive Evidence Console with Filter Tabs and Check Chips */}
+          <div id="evidence-console">
+            <EvidenceConsole checks={report.checks} />
+          </div>
         </div>
 
-        <aside className="space-y-8 lg:col-span-4">
+        {/* Sidebar: Pipeline, Registry, Recommendations, Correlations, Limitations */}
+        <aside className="space-y-6 lg:col-span-4">
+          {/* Top-to-Bottom Animated Pipeline Stepper at the side of screen */}
+          <PipelineTimeline report={report} />
+
+          <div id="registry-panel">
+            <RegistryPanel report={report} onRegistered={(chain) => setReport({ ...report, chain })} />
+          </div>
+
           {report.recommendations.length > 0 && (
-            <SideBlock title="What to do">
+            <SideBlock title="Security Recommendations">
               <ul className="grid gap-2.5">
                 {report.recommendations.map((r) => (
-                  <li key={r} className="flex gap-3 text-[15px] leading-relaxed text-muted">
-                    <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden="true" />
+                  <li key={r} className="flex gap-3 text-[13px] leading-relaxed text-muted">
+                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-link" aria-hidden="true" />
                     {r}
                   </li>
                 ))}
@@ -187,37 +206,47 @@ export default function ReportPage() {
 
           {sameSite.length > 0 && (
             <SideBlock title={`Checked ${sameSite.length} other time${sameSite.length > 1 ? 's' : ''}`}>
-              <p className="mb-3 text-[14px] text-faint">Earlier results for the same address. Each check is run fresh.</p>
+              <p className="mb-3 text-[13px] text-faint">Earlier results for this exact address.</p>
               <RelatedList items={sameSite} showShared={false} />
             </SideBlock>
           )}
 
           {campaign.length > 0 && (
-            <SideBlock title="Possibly the same campaign">
-              <p className="mb-3 text-[14px] text-faint">
-                Other sites or messages that share a domain, server, certificate or contact detail with this one.
+            <SideBlock title="Correlated Infrastructure">
+              <p className="mb-3 text-[13px] text-faint">
+                Other investigations sharing infrastructure (IP, domain, or certificates).
               </p>
               <RelatedList items={campaign} showShared />
             </SideBlock>
           )}
 
-          <RegistryPanel report={report} onRegistered={(chain) => setReport({ ...report, chain })} />
-
-          <SideBlock title="Limitations">
-            <ul className="grid gap-2 text-[14px] leading-relaxed text-faint">
+          <details className="panel group border-line bg-raised/70 p-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between text-[13px] font-medium text-muted transition-colors hover:text-ink">
+              <span className="flex items-center gap-2">
+                <svg className="h-4 w-4 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 16v-4" />
+                  <path d="M12 8h.01" />
+                </svg>
+                Audit Scope & Limitations ({report.limitations.length})
+              </span>
+              <svg className="h-4 w-4 text-faint transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <ul className="mt-3 grid gap-2 border-t border-line pt-3 text-[12px] leading-relaxed text-faint">
               {report.limitations.map((l) => {
-                // "[tls] text" -> "Certificate and trust: text"
                 const m = l.match(/^\[(\w+)\]\s*(.*)$/)
                 const name = m && m[1] in CHECK_LABEL ? CHECK_LABEL[m[1] as keyof typeof CHECK_LABEL] : null
                 return (
                   <li key={l}>
-                    {name && <span className="text-muted">{name}: </span>}
+                    {name && <span className="font-medium text-muted">{name}: </span>}
                     {m ? m[2] : l}
                   </li>
                 )
               })}
             </ul>
-          </SideBlock>
+          </details>
         </aside>
       </div>
     </div>
