@@ -1,30 +1,72 @@
-// App shell: header + nav + page outlet. Owner: P1.
-import { NavLink, Outlet } from 'react-router-dom'
+// App shell for the checker pages (/check, /report, /history, /verify). The landing page has its own. Owner: P1.
+import { useState } from 'react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Logo } from './components/Brand'
 
-const navClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-md px-3 py-1.5 text-sm ${isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`
+const LINKS = [
+  { to: '/check', label: 'Check' },
+  { to: '/history', label: 'History' },
+  { to: '/verify', label: 'Verify' },
+]
 
 export default function App() {
+  const [open, setOpen] = useState(false)
+
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3">
-          <NavLink to="/" className="text-lg font-bold tracking-tight">
-            Trust<span className="text-sky-400">Lens</span>
-          </NavLink>
-          <nav className="ml-auto flex gap-1">
-            <NavLink to="/" end className={navClass}>Investigate</NavLink>
-            <NavLink to="/history" className={navClass}>History</NavLink>
-            <NavLink to="/verify" className={navClass}>Verify</NavLink>
+    <div className="flex min-h-svh flex-col">
+      <header className="fixed inset-x-0 top-0 z-10 h-[var(--nav)] border-b border-line bg-ground">
+        <div className="wrap flex h-full items-center gap-8">
+          <Logo />
+          <nav className="hidden items-center gap-6 sm:flex" aria-label="Checker">
+            {LINKS.map((l) => (
+              <NavLink key={l.to} to={l.to} className="nav-link">
+                {l.label}
+              </NavLink>
+            ))}
           </nav>
+          <div className="ml-auto flex items-center gap-3">
+            <Link to="/" className="nav-link hidden sm:inline">
+              About
+            </Link>
+            <button
+              type="button"
+              className="btn btn-secondary w-11 px-0 sm:hidden"
+              aria-expanded={open}
+              aria-label={open ? 'Close menu' : 'Open menu'}
+              onClick={() => setOpen((o) => !o)}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                {open ? (
+                  <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                ) : (
+                  <path d="M2 5h14M2 9h14M2 13h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
+        {open && (
+          <div className="fixed inset-x-0 bottom-0 top-[var(--nav)] z-10 bg-ground sm:hidden" onClick={() => setOpen(false)}>
+            <nav className="wrap flex flex-col pt-4" aria-label="Menu">
+              {[...LINKS, { to: '/', label: 'About TrustLens' }].map((l) => (
+                <Link key={l.to} to={l.to} className="flex h-14 items-center border-b border-line text-[18px]">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
+
+      <main className="wrap flex-1 pb-24 pt-[calc(var(--nav)+48px)]">
         <Outlet />
       </main>
-      <footer className="mx-auto max-w-5xl px-4 pb-8 text-xs text-slate-600">
-        Automated checks can't prove a website is safe. Never share passwords, OTPs or payment details because a
-        message asked you to.
+
+      <footer className="border-t border-line">
+        <div className="wrap flex flex-col gap-2 py-8 text-[14px] text-faint sm:flex-row sm:justify-between">
+          <p>Automated checks cannot prove a website is safe. Never share a password, OTP or card number because a message asked for it.</p>
+          <p className="shrink-0">TrustLens, 2026</p>
+        </div>
       </footer>
     </div>
   )

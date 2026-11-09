@@ -84,8 +84,9 @@ inputs/outputs and a step-by-step guide in `docs/tasks/`.
 │   └── src/
 │       ├── api/client.ts          (P1) typed API calls — mirrors §4 types
 │       ├── types.ts               (P1) TS copies of the §4 schemas
-│       ├── pages/                 (P1) HomePage (submit), ReportPage, HistoryPage
-│       ├── components/            (P1) shared UI: RiskBadge, FindingCard, CheckSection, labels
+│       ├── index.css              (P1) the design system: colour/type tokens, .btn, .panel, .risk, .sev, motion
+│       ├── pages/                 (P1) LandingPage (/), CheckPage (/check), ReportPage, HistoryPage
+│       ├── components/            (P1) Brand, RiskBadge, FindingCard, CheckSection, labels; landing/ (hero window, product frame, diagram)
 │       └── features/registry/     (P4) RegistryPanel ("Register on-chain"), VerifyPage
 ├── contracts/                     Hardhat project: contracts/ThreatRegistry.sol + test/ + scripts/deploy.js (P1);
 │                                  ThreatRegistry.abi.json + deployments/<network>.json are written by the deploy script (P4 runs it for Sepolia)

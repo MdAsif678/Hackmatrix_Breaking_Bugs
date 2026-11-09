@@ -1,9 +1,324 @@
 @import "tailwindcss";
 
-:root {
-  color-scheme: dark;
+/* ------------------------------------------------------------------------------------------------
+   TrustLens design system (one system for the whole site).
+   Neutral interface (90-95%), one accent (blue) for actions, focus and links; risk colours only
+   carry meaning inside verdicts and findings. Type: Geist + Geist Mono. Radius: sharp (4/6/8),
+   app windows 12. Spacing: Tailwind's 4px scale (4, 8, 12, 16, 24, 32, 48, 64, 96, 128).
+   ------------------------------------------------------------------------------------------------ */
+
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ground: #0c0d0f; /* page */
+  --color-raised: #131417; /* cards, windows */
+  --color-sunken: #0f1012; /* rows inside a window */
+  --color-ink: #ededef; /* text, 16:1 on ground */
+  --color-muted: #a1a2a9; /* secondary text, 7:1 */
+  --color-faint: #80828a; /* labels and meta, 4.9:1 */
+  --color-line: rgb(237 237 239 / 0.1); /* hairline */
+  --color-line-strong: rgb(237 237 239 / 0.2);
+
+  --color-action: #2563eb; /* the one accent: primary button, focus, links */
+  --color-link: #8db1ff; /* accent as text on the dark ground, 8:1 */
+
+  --color-risk-low: #3fb27f;
+  --color-risk-suspicious: #e3b341;
+  --color-risk-high: #f0894b;
+  --color-risk-malicious: #f25c5c;
+  --color-risk-inconclusive: #8e9098;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-win: 12px;
+
+  --ease-ui: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+:root {
+  color-scheme: dark;
+  --gut: 80px;
+  --nav: 72px;
 }
+@media (max-width: 1023px) {
+  :root { --gut: 48px; }
+}
+@media (max-width: 639px) {
+  :root { --gut: 24px; --nav: 56px; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: var(--nav); }
+html, body { margin: 0; }
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: rgb(37 99 235 / 0.45); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@layer components {
+  /* The one content column: same left/right edge everywhere */
+  .wrap {
+    width: min(100% - 2 * var(--gut), 1280px);
+    min-width: 0; /* never let content force the column wider than the screen */
+    margin-inline: auto;
+  }
+  .grid > * { min-width: 0; } /* grid items may shrink below their content */
+
+  /* Type scale */
+  .t-h1 {
+    font-size: clamp(40px, 4.2vw + 12px, 72px);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    font-weight: 500;
+  }
+  .t-h2 {
+    font-size: clamp(30px, 1.6vw + 18px, 46px);
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+    font-weight: 500;
+    text-wrap: balance;
+  }
+  .t-h3 {
+    font-size: 20px;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+  }
+  .t-lead { font-size: clamp(18px, 0.4vw + 16px, 20px); line-height: 1.55; color: var(--color-muted); }
+  .t-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--color-faint); }
+  .measure { max-width: 62ch; }
+
+  /* Buttons: one primary (filled accent), one secondary (outline). 44px, 16px label. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 24px;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition:
+      transform 150ms var(--ease-ui),
+      background-color 150ms var(--ease-ui),
+      border-color 150ms var(--ease-ui),
+      color 150ms var(--ease-ui);
+  }
+  .btn:disabled { cursor: not-allowed; opacity: 0.45; }
+  .btn-primary { background: var(--color-action); color: #fff; }
+  .btn-secondary { border-color: var(--color-line-strong); color: var(--color-ink); background: transparent; }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:not(:disabled):hover {
+      background: color-mix(in oklab, var(--color-action) 86%, var(--color-ink));
+      transform: translateY(-1px);
+    }
+    .btn-secondary:not(:disabled):hover {
+      background: rgb(237 237 239 / 0.05);
+      border-color: rgb(237 237 239 / 0.34);
+      transform: translateY(-1px);
+    }
+  }
+  .btn:not(:disabled):active { transform: translateY(1px) scale(0.985); transition-duration: 90ms; }
+  .btn .arrow { transition: transform 150ms var(--ease-ui); }
+  @media (hover: hover) and (pointer: fine) {
+    .btn:hover .arrow { transform: translateX(3px); }
+  }
+
+  /* Links: a faint hairline at rest, an ink line draws on hover */
+  .link {
+    color: var(--color-ink);
+    text-decoration: none;
+    background-image: linear-gradient(var(--color-line-strong), var(--color-line-strong)),
+      linear-gradient(currentColor, currentColor);
+    background-size: 100% 1px, 0% 1px;
+    background-position: 0 100%, 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 150ms var(--ease-ui), color 150ms var(--ease-ui);
+  }
+  .link:hover { background-size: 100% 1px, 100% 1px; }
+  .link-accent { color: var(--color-link); }
+
+  /* Nav and footer words: bare, darken and draw a line under on hover */
+  .nav-link {
+    position: relative;
+    color: var(--color-muted);
+    font-size: 15px;
+    font-weight: 500;
+    transition: color 150ms var(--ease-ui);
+  }
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -4px;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 150ms var(--ease-ui);
+  }
+  .nav-link:hover, .nav-link[aria-current="page"] { color: var(--color-ink); }
+  .nav-link:hover::after { transform: scaleX(1); }
+  .nav-link[aria-current="page"]::after { transform: scaleX(1); height: 2px; }
+
+  /* Surfaces */
+  .panel {
+    background: var(--color-raised);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+  }
+  .window {
+    background: var(--color-raised);
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-win);
+    overflow: hidden;
+  }
+  /* A card that leads somewhere lifts 2px and its border steps up */
+  .card-link {
+    transition: transform 180ms var(--ease-ui), border-color 180ms var(--ease-ui), background-color 180ms var(--ease-ui);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .card-link:hover { transform: translateY(-2px); border-color: var(--color-line-strong); }
+  }
+
+  /* Form fields */
+  .field {
+    width: 100%;
+    background: var(--color-sunken);
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-md);
+    color: var(--color-ink);
+    font-size: 16px;
+    transition: border-color 140ms var(--ease-ui), box-shadow 140ms var(--ease-ui);
+  }
+  .field::placeholder { color: var(--color-faint); }
+  .field:focus { outline: none; border-color: var(--color-action); box-shadow: 0 0 0 3px rgb(37 99 235 / 0.25); }
+
+  /* Risk and severity marks: colour only carries meaning */
+  .risk {
+    --c: var(--color-risk-inconclusive);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--c);
+    border: 1px solid color-mix(in oklab, var(--c) 38%, transparent);
+    background: color-mix(in oklab, var(--c) 9%, transparent);
+    border-radius: 999px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .risk::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .risk[data-level="low_risk"] { --c: var(--color-risk-low); }
+  .risk[data-level="suspicious"] { --c: var(--color-risk-suspicious); }
+  .risk[data-level="high_risk"] { --c: var(--color-risk-high); }
+  .risk[data-level="confirmed_malicious"] { --c: var(--color-risk-malicious); }
+  .risk[data-level="inconclusive"] { --c: var(--color-risk-inconclusive); }
+
+  .sev {
+    --c: var(--color-faint);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--c);
+    background: color-mix(in oklab, var(--c) 12%, transparent);
+  }
+  .sev[data-sev="info"] { --c: #8fb3ff; }
+  .sev[data-sev="low"] { --c: var(--color-muted); }
+  .sev[data-sev="medium"] { --c: var(--color-risk-suspicious); }
+  .sev[data-sev="high"] { --c: var(--color-risk-high); }
+  .sev[data-sev="critical"] { --c: var(--color-risk-malicious); }
+
+  /* Landing sections: top-aligned, a section per screen on desktop */
+  .section {
+    padding-top: 112px;
+    padding-bottom: 56px;
+  }
+  @media (min-width: 1024px) {
+    .section { min-height: 100svh; }
+  }
+  @media (max-width: 639px) {
+    .section { padding-top: 96px; padding-bottom: 48px; }
+  }
+}
+
+/* ---------------------------------------------- motion ---------------------------------------------- */
+
+/* Hero entrance, once on load: h1 lines rise from masks, then lead and buttons fade up, the window settles */
+.enter-line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.enter-line > span { display: block; animation: line-rise 700ms var(--ease-enter) both; }
+.enter-fade { animation: fade-up 520ms var(--ease-enter) both; }
+.enter-settle { animation: settle 900ms var(--ease-enter) both; }
+@keyframes line-rise { from { transform: translateY(105%); } to { transform: translateY(0); } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes settle { from { opacity: 0.001; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* Hero window loop: the five checks tick, the verdict lands, the finished picture holds */
+.loop { --cycle: 4s; }
+.loop [data-step] { animation-duration: var(--cycle); animation-iteration-count: infinite; animation-timing-function: linear; animation-fill-mode: both; }
+.loop .wait[data-step="1"] { animation-name: wait-1; } .loop .done[data-step="1"] { animation-name: done-1; }
+.loop .wait[data-step="2"] { animation-name: wait-2; } .loop .done[data-step="2"] { animation-name: done-2; }
+.loop .wait[data-step="3"] { animation-name: wait-3; } .loop .done[data-step="3"] { animation-name: done-3; }
+.loop .wait[data-step="4"] { animation-name: wait-4; } .loop .done[data-step="4"] { animation-name: done-4; }
+.loop .wait[data-step="5"] { animation-name: wait-5; } .loop .done[data-step="5"] { animation-name: done-5; }
+.loop .verdict[data-step="v"] { animation-name: verdict-in; }
+.loop.is-paused [data-step], .loop.is-paused .spin { animation-play-state: paused !important; }
+@keyframes wait-1 { 0%, 9% { opacity: 1; } 10%, 100% { opacity: 0; } }
+@keyframes done-1 { 0%, 9% { opacity: 0; } 10%, 100% { opacity: 1; } }
+@keyframes wait-2 { 0%, 19% { opacity: 1; } 20%, 100% { opacity: 0; } }
+@keyframes done-2 { 0%, 19% { opacity: 0; } 20%, 100% { opacity: 1; } }
+@keyframes wait-3 { 0%, 29% { opacity: 1; } 30%, 100% { opacity: 0; } }
+@keyframes done-3 { 0%, 29% { opacity: 0; } 30%, 100% { opacity: 1; } }
+@keyframes wait-4 { 0%, 39% { opacity: 1; } 40%, 100% { opacity: 0; } }
+@keyframes done-4 { 0%, 39% { opacity: 0; } 40%, 100% { opacity: 1; } }
+@keyframes wait-5 { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes done-5 { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+@keyframes verdict-in { 0%, 56% { opacity: 0.12; transform: translateY(4px); } 62%, 100% { opacity: 1; transform: none; } }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Diagram pulses travel along the lines while the pointer is on the card */
+.diagram .pulse { stroke-dasharray: 10 200; stroke-dashoffset: 210; opacity: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .diagram:hover .pulse, .diagram:focus-within .pulse { opacity: 1; animation: pulse-run 2.4s linear infinite; }
+}
+@keyframes pulse-run { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-property: color, background-color, border-color, opacity !important; }
+  .enter-line > span, .enter-fade, .enter-settle { opacity: 1 !important; transform: none !important; }
+  .loop .wait { opacity: 0 !important; }
+  .loop .done, .loop .verdict { opacity: 1 !important; transform: none !important; }
+  .statement-word { color: var(--color-ink) !important; }
+}
+
+/* The statement moment: words light up as the section scrolls through (scrubbed, runs back on the way up) */
+.statement-word { color: rgb(237 237 239 / 0.22); transition: color 200ms linear; }
+.statement-word[data-lit="true"] { color: var(--color-ink); }

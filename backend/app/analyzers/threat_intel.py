@@ -217,7 +217,7 @@ async def analyze(target: str) -> CheckResult:
             except Exception as exc:
                 limitations.append(f"URLhaus query failed: {type(exc).__name__}.")
         else:
-            limitations.append("URLhaus not checked: no API key configured.")
+            limitations.append("Not looked up in URLhaus, a database of malware download links: it needs a free access key that has not been added to this server yet.")
 
         # 3. Google Safe Browsing API (optional)
         if settings.google_safe_browsing_api_key:
@@ -261,7 +261,7 @@ async def analyze(target: str) -> CheckResult:
             except Exception as exc:
                 limitations.append(f"Google Safe Browsing query failed: {type(exc).__name__}.")
         else:
-            limitations.append("Google Safe Browsing not checked: no API key configured.")
+            limitations.append("Not looked up in Google Safe Browsing, the list Chrome uses to warn about dangerous sites: it needs a free access key that has not been added to this server yet.")
 
         data: dict[str, Any] = {
             "sources_checked": sources_checked,

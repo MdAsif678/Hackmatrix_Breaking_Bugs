@@ -93,7 +93,9 @@ transaction there, and the Verify page shows ✓.
 
 ## Step 3 — Registry UI (React)
 
-The basic versions already work: `RegistryPanel.tsx` and `VerifyPage.tsx`. The verify API also returns
+The basic versions already work: `RegistryPanel.tsx` and `VerifyPage.tsx` (restyled by P1 for the new design system in
+`frontend/src/index.css`: reuse its `.btn`, `.panel`, `.field` classes and colour tokens, never violet, no gradients;
+the Verify page already shows `detail` and every `status`). The verify API also returns
 `explorer_url` (Etherscan link on Sepolia, empty on the local chain), `chain_status` (active/disputed/revised),
 `block_timestamp` and `submitter` — use them. If the `.env` values are missing, the button shows
 "On-chain registry not configured yet (missing: …)". Improve the screens:

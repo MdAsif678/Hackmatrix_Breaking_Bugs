@@ -1,53 +1,51 @@
-// Display labels & colours shared by the UI. Owner: P1.
+// Display labels shared by the UI. Colours live in index.css (.risk / .sev). Owner: P1.
 import type { CheckName, RiskLevel, Severity } from '../types'
 
-export const RISK_META: Record<RiskLevel, { label: string; className: string; description: string }> = {
+export const RISK_META: Record<RiskLevel, { label: string; description: string }> = {
   low_risk: {
     label: 'Low Risk',
-    className: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/40',
-    description: 'No significant malicious indicators identified within the available checks.',
+    description: 'No significant warning signs in the checks that ran.',
   },
   suspicious: {
     label: 'Suspicious',
-    className: 'bg-amber-500/15 text-amber-300 ring-amber-500/40',
-    description: 'One or more indicators require further investigation.',
+    description: 'One or more warning signs need a closer look.',
   },
   high_risk: {
     label: 'High Risk',
-    className: 'bg-orange-500/15 text-orange-300 ring-orange-500/40',
-    description: 'Multiple significant indicators suggest a substantial security threat.',
+    description: 'Several serious warning signs point to a scam or an attack.',
   },
   confirmed_malicious: {
     label: 'Confirmed Malicious',
-    className: 'bg-red-500/20 text-red-300 ring-red-500/50',
-    description: 'Supported by authoritative threat intelligence or sufficiently validated evidence.',
+    description: 'Listed on trusted phishing or malware databases.',
   },
   inconclusive: {
     label: 'Inconclusive',
-    className: 'bg-slate-500/20 text-slate-300 ring-slate-500/40',
-    description: 'Insufficient data or unavailable verification sources.',
+    description: 'Too few checks could run to judge this one.',
   },
 }
 
-export const SEVERITY_CLASS: Record<Severity, string> = {
-  info: 'bg-sky-500/15 text-sky-300',
-  low: 'bg-slate-500/20 text-slate-300',
-  medium: 'bg-amber-500/15 text-amber-300',
-  high: 'bg-orange-500/20 text-orange-300',
-  critical: 'bg-red-500/25 text-red-300',
-}
-
 export const CHECK_LABEL: Record<CheckName, string> = {
-  url: 'URL & Phishing Indicators',
-  dns: 'DNS & Domain Age',
-  threat_intel: 'Threat Intelligence',
-  tls: 'TLS Certificate & Trust',
-  headers: 'Security Headers',
-  message: 'Message / Scam Analysis',
+  url: 'Lookalike names and link tricks',
+  dns: 'Domain age and DNS',
+  threat_intel: 'Known phishing lists',
+  tls: 'Certificate and trust',
+  headers: 'Website security settings',
+  message: 'Message analysis',
 }
 
-export const STATUS_CLASS = {
-  ok: 'text-emerald-400',
-  error: 'text-red-400',
-  skipped: 'text-slate-500',
+export const STATUS_LABEL = {
+  ok: 'Checked',
+  error: 'Could not run',
+  skipped: 'Not available yet',
 } as const
+
+// Plain-English names for finding severities, most serious first.
+export const SEVERITY_META: Record<Severity, { label: string; meaning: string }> = {
+  critical: { label: 'Danger', meaning: 'A known scam, or trust that is broken. Do not use the site.' },
+  high: { label: 'Serious', meaning: 'A strong sign of a scam or an attack.' },
+  medium: { label: 'Warning', meaning: 'Unusual. Worth a closer look before you trust it.' },
+  low: { label: 'Minor', meaning: 'A small weakness in how the site is set up. Not a scam sign on its own.' },
+  info: { label: 'Note', meaning: 'Information only, not a problem.' },
+}
+
+export const SEVERITY_ORDER: Severity[] = ['critical', 'high', 'medium', 'low', 'info']

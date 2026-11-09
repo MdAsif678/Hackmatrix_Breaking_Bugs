@@ -1,12 +1,76 @@
 // Full investigation report. Owner: P1 (RegistryPanel is P4's).
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { CheckSection } from '../components/CheckSection'
-import { RISK_META } from '../components/labels'
+import { CHECK_LABEL, RISK_META } from '../components/labels'
 import { RiskBadge } from '../components/RiskBadge'
+import { SeverityLegend, SeverityTag } from '../components/Severity'
 import { RegistryPanel } from '../features/registry/RegistryPanel'
-import type { AnalysisReport, RelatedReport } from '../types'
+import type { AnalysisReport, Finding, RelatedReport, Severity } from '../types'
+
+function SideBlock({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="border-t border-line pt-5">
+      <h2 className="text-[15px] font-medium">{title}</h2>
+      <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
+function RelatedList({ items, showShared }: { items: RelatedReport[]; showShared: boolean }) {
+  return (
+    <ul className="grid gap-2">
+      {items.map((r) => (
+        <li key={r.report_id}>
+          <Link to={`/report/${r.report_id}`} className="panel card-link block px-4 py-3">
+            <span className="flex items-center justify-between gap-3">
+              <span className="min-w-0 truncate font-mono text-[13px] text-ink">{r.label ?? r.report_id}</span>
+              {r.risk_level && <RiskBadge level={r.risk_level} />}
+            </span>
+            {showShared ? (
+              <span className="mt-2 flex flex-wrap gap-1.5">
+                {r.shared_indicators.slice(0, 3).map((s) => (
+                  <span key={s} className="max-w-full truncate rounded-sm border border-line px-1.5 py-0.5 font-mono text-[12px] text-muted">
+                    {s.length > 48 ? `${s.slice(0, 48)}…` : s}
+                  </span>
+                ))}
+              </span>
+            ) : (
+              r.created_at && <span className="mt-1 block text-[13px] text-faint">{new Date(r.created_at).toLocaleString()}</span>
+            )}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// "[tls.expired] The certificate…" -> the cited finding's severity tag + the sentence (no internal ids)
+function KeyPoint({ text, findings }: { text: string; findings: Map<string, Finding> }) {
+  const m = text.match(/^\[([^\]]+)\]\s*(.*)$/)
+  const finding = m ? findings.get(m[1]) : undefined
+  return (
+    <li className="grid gap-2 py-3 sm:grid-cols-[84px_1fr] sm:gap-4">
+      <span>{finding && <SeverityTag sev={finding.severity} />}</span>
+      <span className="text-[15px] leading-relaxed text-muted">{m ? m[2] : text}</span>
+    </li>
+  )
+}
+
+const RANK: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 }
+
+// The verdict in plain words: the titles of the findings that drove it, most serious first.
+function verdictReason(report: AnalysisReport, all: Finding[]): string {
+  if (report.risk_level === 'inconclusive') {
+    const ran = report.checks.filter((c) => c.status === 'ok').length
+    return `Only ${ran} of ${report.checks.length} checks could run, so there is not enough evidence either way.`
+  }
+  const main = all.filter((f) => RANK[f.severity] >= 2).sort((a, b) => RANK[b.severity] - RANK[a.severity])
+  if (!main.length) return 'Nothing serious was found in the checks that ran.'
+  const titles = [...new Set(main.map((f) => f.title))].slice(0, 3)
+  return `Main reason${titles.length > 1 ? 's' : ''}: ${titles.join('; ')}.`
+}
 
 export default function ReportPage() {
   const { id } = useParams()
@@ -21,169 +85,141 @@ export default function ReportPage() {
     api.correlations(id).then((r) => setRelated(r.related)).catch(() => setRelated([]))
   }, [id])
 
-  if (error) return <p className="text-red-300">Could not load report: {error}</p>
-  if (!report) return <p className="text-slate-400">Loading report…</p>
+  if (error) return <p className="text-risk-malicious">Could not load this report: {error}</p>
+  if (!report) return <p className="text-muted">Loading the report…</p>
 
-  const findingsCount = report.checks.reduce((n, c) => n + c.findings.length, 0)
-  // Earlier/later checks of the SAME website vs DIFFERENT sites/messages sharing details (a possible campaign)
+  const allFindings = report.checks.flatMap((c) => c.findings)
+  const findingsById = new Map(allFindings.map((f) => [f.id, f]))
+  const findingsCount = allFindings.length
+  const ran = report.checks.filter((c) => c.status === 'ok').length
   const sameSite = related.filter((r) => r.relation === 'same_site')
   const campaign = related.filter((r) => r.relation !== 'same_site')
   const indicatorEntries = Object.entries(report.extracted_indicators).filter(([, v]) => v.length > 0)
+  const target = report.input_type === 'message' ? 'Pasted message' : report.normalized_target ?? report.input
 
   return (
-    <div className="grid gap-6">
+    <div>
+      <Link to="/check" className="link text-[14px] text-muted">
+        New check
+      </Link>
+
       {/* Verdict */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <RiskBadge level={report.risk_level} size="lg" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-mono text-sm text-slate-300" title={report.input}>
-              {report.input_type === 'message' ? 'Pasted message' : report.normalized_target ?? report.input}
-            </p>
-            <p className="text-xs text-slate-500">
-              Analysed {new Date(report.created_at).toLocaleString()} · {findingsCount} finding(s) · evidence
-              coverage {Math.round(report.coverage * 100)}%
-            </p>
-          </div>
-        </div>
-        <p className="mt-4 text-sm text-slate-400">{RISK_META[report.risk_level].description}</p>
-        <ul className="mt-2 list-inside list-disc text-sm text-slate-300">
-          {report.risk_reasons.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
-        </ul>
-      </section>
+      <header className="mt-6 border-b border-line pb-8">
+        <RiskBadge level={report.risk_level} size="lg" />
+        <h1 className="mt-4 break-all font-mono text-[clamp(20px,1.2vw+14px,28px)] leading-snug tracking-[-0.01em]" title={report.input}>
+          {target}
+        </h1>
+        <p className="mt-2 text-[14px] text-faint">
+          {new Date(report.created_at).toLocaleString()} · {ran} of {report.checks.length} checks ran · {findingsCount}{' '}
+          finding{findingsCount === 1 ? '' : 's'}
+        </p>
+        <p className="mt-4 max-w-[62ch] text-[16px] text-muted">
+          {RISK_META[report.risk_level].description} {verdictReason(report, allFindings)}
+        </p>
+      </header>
 
-      {/* Same website checked before / after */}
-      {sameSite.length > 0 && (
-        <section className="rounded-xl border border-sky-900/60 bg-sky-950/10 p-5">
-          <h2 className="font-semibold text-sky-300">
-            This website was checked {sameSite.length} other time{sameSite.length > 1 ? 's' : ''}
-          </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Each check is done fresh, because websites change. Earlier results for comparison:
-          </p>
-          <ul className="mt-3 grid gap-2">
-            {sameSite.map((r) => (
-              <li key={r.report_id}>
-                <Link
-                  to={`/report/${r.report_id}`}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 hover:border-slate-600"
-                >
-                  {r.risk_level && <RiskBadge level={r.risk_level} />}
-                  <span className="min-w-0 flex-1 truncate font-mono text-sm">{r.label ?? r.report_id}</span>
-                  {r.created_at && (
-                    <span className="text-xs text-slate-500">{new Date(r.created_at).toLocaleString()}</span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* AI explanation */}
-      {report.explanation && (
-        <section className="rounded-xl border border-sky-900/60 bg-sky-950/20 p-5">
-          <h2 className="font-semibold text-sky-300">What this means</h2>
-          <p className="mt-2">{report.explanation.summary}</p>
-          {report.explanation.key_points.length > 0 && (
-            <ul className="mt-3 grid gap-1 text-sm text-slate-300">
-              {report.explanation.key_points.map((k) => (
-                <li key={k}>• {k}</li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-
-      {/* Recommendations */}
-      {report.recommendations.length > 0 && (
-        <section className="rounded-xl border border-slate-800 p-5">
-          <h2 className="font-semibold">Recommended actions</h2>
-          <ul className="mt-2 grid gap-1 text-sm text-slate-300">
-            {report.recommendations.map((r) => (
-              <li key={r}>✓ {r}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Message input + extracted indicators */}
-      {report.input_type === 'message' && (
-        <section className="rounded-xl border border-slate-800 p-5">
-          <h2 className="font-semibold">Submitted message</h2>
-          <p className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-900 p-3 text-sm text-slate-300">{report.input}</p>
-        </section>
-      )}
-      {indicatorEntries.length > 0 && (
-        <section className="rounded-xl border border-slate-800 p-5">
-          <h2 className="font-semibold">Extracted indicators</h2>
-          <dl className="mt-2 grid gap-2 text-sm">
-            {indicatorEntries.map(([kind, values]) => (
-              <div key={kind} className="flex gap-3">
-                <dt className="w-24 shrink-0 capitalize text-slate-500">{kind.replace('_', ' ')}</dt>
-                <dd className="grid gap-0.5 break-all font-mono text-xs text-slate-300">
-                  {values.map((v) => (
-                    <span key={v}>{v}</span>
+      <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-6">
+        <div className="min-w-0 space-y-12 lg:col-span-8">
+          {report.explanation && (
+            <section>
+              <h2 className="t-label">What this means</h2>
+              <p className="mt-2 max-w-[62ch] border-l-2 border-action pl-4 text-[18px] leading-relaxed">
+                {report.explanation.summary}
+              </p>
+              {report.explanation.key_points.length > 0 && (
+                <ul className="mt-4 divide-y divide-line border-y border-line">
+                  {report.explanation.key_points.map((k) => (
+                    <KeyPoint key={k} text={k} findings={findingsById} />
                   ))}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
+                </ul>
+              )}
+            </section>
+          )}
 
-      {/* Per-check evidence */}
-      <section className="grid gap-3">
-        <h2 className="text-lg font-semibold">Evidence by check</h2>
-        {report.checks.map((c, i) => (
-          <CheckSection key={`${c.check}-${c.target}-${i}`} check={c} />
-        ))}
-      </section>
+          {report.input_type === 'message' && (
+            <section>
+              <h2 className="t-label">The message you pasted</h2>
+              <p className="panel mt-2 whitespace-pre-wrap p-4 text-[15px] leading-relaxed text-muted">{report.input}</p>
+              {indicatorEntries.length > 0 && (
+                <dl className="mt-4 grid gap-2 text-[14px]">
+                  {indicatorEntries.map(([kind, values]) => (
+                    <div key={kind} className="grid grid-cols-[110px_1fr] gap-3">
+                      <dt className="capitalize text-faint">{kind.replace('_', ' ')}</dt>
+                      <dd className="grid gap-1 break-all font-mono text-[13px] text-ink">
+                        {values.map((v) => (
+                          <span key={v}>{v}</span>
+                        ))}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </section>
+          )}
 
-      {/* Related reports (threat correlation) */}
-      {campaign.length > 0 && (
-        <section className="rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/10 p-5">
-          <h2 className="font-semibold text-fuchsia-300">Possibly part of the same campaign</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Different websites or messages share infrastructure or contact details with this one (for example the
-            same server, certificate, phone number or UPI ID), which suggests the same people may be behind them.
-            Links are found by exact matching, not guesswork.
-          </p>
-          <ul className="mt-3 grid gap-2">
-            {campaign.map((r) => (
-              <li key={r.report_id}>
-                <Link
-                  to={`/report/${r.report_id}`}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 hover:border-slate-600"
-                >
-                  {r.risk_level && <RiskBadge level={r.risk_level} />}
-                  <span className="min-w-0 flex-1 truncate font-mono text-sm">{r.label ?? r.report_id}</span>
-                  <span className="flex flex-wrap gap-1">
-                    {r.shared_indicators.map((s) => (
-                      <span key={s} className="rounded bg-fuchsia-500/15 px-2 py-0.5 text-xs text-fuchsia-200">{s}</span>
-                    ))}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+          <section>
+            <h2 className="t-h3">Evidence by check</h2>
+            <p className="mt-1 text-[15px] text-muted">What each check looked at, what it found and how serious it is.</p>
+            <div className="panel mt-4 px-5 py-4">
+              <SeverityLegend />
+            </div>
+            <div className="mt-4 grid gap-4">
+              {report.checks.map((c, i) => (
+                <CheckSection key={`${c.check}-${c.target}-${i}`} check={c} />
+              ))}
+            </div>
+          </section>
+        </div>
 
-      {/* Limitations */}
-      <section className="rounded-xl border border-slate-800 p-5">
-        <h2 className="font-semibold">Limitations & unavailable checks</h2>
-        <ul className="mt-2 list-inside list-disc text-sm text-slate-400">
-          {report.limitations.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
-      </section>
+        <aside className="space-y-8 lg:col-span-4">
+          {report.recommendations.length > 0 && (
+            <SideBlock title="What to do">
+              <ul className="grid gap-2.5">
+                {report.recommendations.map((r) => (
+                  <li key={r} className="flex gap-3 text-[15px] leading-relaxed text-muted">
+                    <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-ink" aria-hidden="true" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            </SideBlock>
+          )}
 
-      {/* On-chain registry (P4) */}
-      <RegistryPanel report={report} onRegistered={(chain) => setReport({ ...report, chain })} />
+          {sameSite.length > 0 && (
+            <SideBlock title={`Checked ${sameSite.length} other time${sameSite.length > 1 ? 's' : ''}`}>
+              <p className="mb-3 text-[14px] text-faint">Earlier results for the same address. Each check is run fresh.</p>
+              <RelatedList items={sameSite} showShared={false} />
+            </SideBlock>
+          )}
+
+          {campaign.length > 0 && (
+            <SideBlock title="Possibly the same campaign">
+              <p className="mb-3 text-[14px] text-faint">
+                Other sites or messages that share a domain, server, certificate or contact detail with this one.
+              </p>
+              <RelatedList items={campaign} showShared />
+            </SideBlock>
+          )}
+
+          <RegistryPanel report={report} onRegistered={(chain) => setReport({ ...report, chain })} />
+
+          <SideBlock title="Limitations">
+            <ul className="grid gap-2 text-[14px] leading-relaxed text-faint">
+              {report.limitations.map((l) => {
+                // "[tls] text" -> "Certificate and trust: text"
+                const m = l.match(/^\[(\w+)\]\s*(.*)$/)
+                const name = m && m[1] in CHECK_LABEL ? CHECK_LABEL[m[1] as keyof typeof CHECK_LABEL] : null
+                return (
+                  <li key={l}>
+                    {name && <span className="text-muted">{name}: </span>}
+                    {m ? m[2] : l}
+                  </li>
+                )
+              })}
+            </ul>
+          </SideBlock>
+        </aside>
+      </div>
     </div>
   )
 }

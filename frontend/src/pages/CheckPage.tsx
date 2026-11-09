@@ -1,0 +1,179 @@
+// The checker: paste a link or a message. Owner: P1.
+import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../api/client'
+import { Arrow } from '../components/Brand'
+
+type Mode = 'url' | 'message'
+
+const URL_EXAMPLES = ['github.com', 'expired.badssl.com', 'paypa1-secure-login.com', 'revoked.badssl.com']
+const MESSAGE_EXAMPLE =
+  'Dear customer, your SBI account KYC expires today. Update now at http://sbi-kyc-verify.example/login or your account will be blocked. Share the OTP sent to you to complete verification.'
+
+const STEPS = ['Lookalike names', 'Domain age', 'Known phishing lists', 'Certificate', 'Security settings', 'Explanation']
+
+function Progress() {
+  return (
+    <div className="panel p-6" role="status" aria-live="polite">
+      <p className="text-[15px] text-ink">Checking now. This usually takes 5 to 15 seconds.</p>
+      <ul className="mt-4 divide-y divide-line">
+        {STEPS.map((s) => (
+          <li key={s} className="flex h-11 items-center gap-3 text-[15px] text-muted">
+            <svg className="spin" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.6" />
+              <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            {s}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+export default function CheckPage() {
+  const navigate = useNavigate()
+  const [mode, setMode] = useState<Mode>('url')
+  const [url, setUrl] = useState('')
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    const value = mode === 'url' ? url.trim() : text.trim()
+    if (!value) {
+      setError(mode === 'url' ? 'Paste a link or a domain, for example example.com' : 'Paste the message you received')
+      return
+    }
+    setError(null)
+    setLoading(true)
+    try {
+      const report = mode === 'url' ? await api.analyzeUrl(value) : await api.analyzeMessage(value)
+      navigate(`/report/${report.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="grid gap-12 lg:grid-cols-12 lg:gap-6">
+      <div className="lg:col-span-7">
+        <h1 className="t-h2">Check a link or message</h1>
+        <p className="t-lead mt-3 max-w-[52ch]">
+          Paste what you received. TrustLens runs five checks and explains what it found.
+        </p>
+
+        <div className="mt-8 inline-flex rounded-md border border-line p-1" role="tablist" aria-label="What to check">
+          {(['url', 'message'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => {
+                setMode(m)
+                setError(null)
+              }}
+              className={`h-9 rounded-sm px-4 text-[15px] font-medium transition-colors ${
+                mode === m ? 'bg-ink text-ground' : 'text-muted hover:text-ink'
+              }`}
+            >
+              {m === 'url' ? 'Link or website' : 'Message or email'}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-6" noValidate>
+          {mode === 'url' ? (
+            <>
+              <label htmlFor="target" className="t-label block">
+                Link or domain
+              </label>
+              <input
+                id="target"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://suspicious-site.example/login"
+                className="field mt-2 h-14 px-4 font-mono text-[15px]"
+                maxLength={2048}
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'target-error' : undefined}
+                autoFocus
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px] text-faint">
+                <span>Try one:</span>
+                {URL_EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => setUrl(ex)}
+                    className="rounded-sm border border-line px-2 py-1 font-mono text-muted transition-colors hover:border-line-strong hover:text-ink"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <label htmlFor="message" className="t-label block">
+                Message text
+              </label>
+              <textarea
+                id="message"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Paste the SMS, WhatsApp message or email here"
+                rows={7}
+                maxLength={10000}
+                className="field mt-2 p-4 leading-relaxed"
+                aria-invalid={!!error}
+                aria-describedby={error ? 'target-error' : undefined}
+              />
+              <button type="button" onClick={() => setText(MESSAGE_EXAMPLE)} className="link mt-3 text-[14px]">
+                Use an example scam message
+              </button>
+            </>
+          )}
+
+          {error && (
+            <p id="target-error" className="mt-3 text-[14px] text-risk-malicious">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-6">
+            <button type="submit" disabled={loading} className="btn btn-primary w-full sm:w-auto">
+              {loading ? 'Checking…' : mode === 'url' ? 'Check this link' : 'Check this message'}
+              {!loading && <Arrow />}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <aside className="lg:col-span-4 lg:col-start-9">
+        {loading ? (
+          <Progress />
+        ) : (
+          <div className="panel p-6">
+            <h2 className="text-[16px] font-medium">What gets checked</h2>
+            <ul className="mt-3 divide-y divide-line text-[15px] text-muted">
+              {STEPS.map((s) => (
+                <li key={s} className="py-2.5">
+                  {s}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 border-t border-line pt-4 text-[14px] leading-relaxed text-faint">
+              Never paste a password, OTP or card number. No check needs them.
+            </p>
+          </div>
+        )}
+      </aside>
+    </div>
+  )
+}

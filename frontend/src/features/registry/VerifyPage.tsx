@@ -1,9 +1,17 @@
-// Independent integrity verification of a registered report. Owner: P4.
-// TODO(P4): show block timestamp, Etherscan link, tamper demo.
+// Independent integrity check of a sealed report. Owner: P4 (restyled by P1 for the new design).
+// TODO(P4): Etherscan links once deployed to Sepolia.
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { VerifyResult } from '../../types'
+
+const HEADLINE: Record<string, { text: string; tone: string }> = {
+  verified: { text: 'The report matches its seal', tone: 'text-risk-low' },
+  mismatch: { text: 'The report was changed after it was sealed', tone: 'text-risk-malicious' },
+  untrusted_submitter: { text: 'The seal was not made by TrustLens', tone: 'text-risk-malicious' },
+  registered_late: { text: 'The seal was added too late to trust', tone: 'text-risk-malicious' },
+  not_registered: { text: 'This report has not been sealed yet', tone: 'text-muted' },
+}
 
 export default function VerifyPage() {
   const { id } = useParams()
@@ -25,36 +33,74 @@ export default function VerifyPage() {
     navigate(`/verify/${input.trim()}`)
   }
 
+  const head = result ? HEADLINE[result.status] ?? { text: result.status, tone: 'text-muted' } : null
+
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="text-2xl font-bold">Verify a report</h1>
-      <p className="mt-2 text-slate-400">
-        Recomputes the report's fingerprint and compares it with the value recorded on the blockchain.
+    <div className="max-w-3xl">
+      <h1 className="t-h2">Verify a report</h1>
+      <p className="t-lead mt-3 max-w-[56ch]">
+        TrustLens recomputes the report’s fingerprint and compares it with the record on the blockchain, which
+        nobody can edit.
       </p>
-      <form onSubmit={onSubmit} className="mt-6 flex gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Report ID"
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 font-mono text-sm outline-none focus:border-sky-500"
-        />
-        <button type="submit" className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500">
-          Verify
-        </button>
+
+      <form onSubmit={onSubmit} className="mt-8">
+        <label htmlFor="report-id" className="t-label block">
+          Report ID
+        </label>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+          <input
+            id="report-id"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="e.g. 7719b4fd-…"
+            className="field h-11 flex-1 px-4 font-mono text-[14px]"
+            spellCheck={false}
+          />
+          <button type="submit" className="btn btn-primary">
+            Verify report
+          </button>
+        </div>
       </form>
 
-      {error && <p className="mt-4 text-red-300">{error}</p>}
-      {result && (
-        <div className={`mt-6 rounded-xl border p-5 ${result.match ? 'border-emerald-700 bg-emerald-950/30' : 'border-amber-700 bg-amber-950/20'}`}>
-          <p className="text-lg font-semibold">
-            {result.match ? '✓ Integrity verified' : result.status === 'not_registered' ? 'Not registered on-chain yet' : '✗ Hash mismatch — report may have been altered'}
-          </p>
-          <dl className="mt-3 grid gap-1 text-sm">
-            <div className="flex gap-2"><dt className="w-36 text-slate-500">Recomputed hash</dt><dd className="break-all font-mono text-xs">{result.recomputed_hash}</dd></div>
-            <div className="flex gap-2"><dt className="w-36 text-slate-500">On-chain hash</dt><dd className="break-all font-mono text-xs">{result.onchain_hash ?? '—'}</dd></div>
-            <div className="flex gap-2"><dt className="w-36 text-slate-500">Transaction</dt><dd className="break-all font-mono text-xs">{result.tx_hash ?? '—'}</dd></div>
+      {error && <p className="mt-6 text-risk-suspicious">{error}</p>}
+
+      {result && head && (
+        <section className="panel mt-8 overflow-hidden">
+          <div className="border-b border-line p-6">
+            <p className={`text-[22px] font-medium tracking-[-0.02em] ${head.tone}`}>{head.text}</p>
+            {result.detail && result.status !== 'not_registered' && (
+              <p className="mt-2 text-[15px] leading-relaxed text-muted">{result.detail}</p>
+            )}
+            {result.status === 'not_registered' && (
+              <p className="mt-2 text-[15px] leading-relaxed text-muted">
+                Open the report and choose Seal this report, then verify it here.
+              </p>
+            )}
+          </div>
+          {result.status !== 'not_registered' && (
+          <dl className="grid gap-3 p-6 text-[14px]">
+            {[
+              ['Fingerprint now', result.recomputed_hash],
+              ['Fingerprint on chain', result.onchain_hash ?? 'none'],
+              ['Sealed by', result.submitter ?? 'none'],
+              ['Sealed at', result.block_timestamp ? new Date(result.block_timestamp * 1000).toLocaleString() : 'none'],
+              ['Transaction', result.tx_hash ?? 'none'],
+            ].map(([k, v]) => (
+              <div key={k} className="grid gap-1 sm:grid-cols-[170px_1fr] sm:gap-4">
+                <dt className="text-faint">{k}</dt>
+                <dd className="break-all font-mono text-[13px] text-muted">{v}</dd>
+              </div>
+            ))}
           </dl>
-        </div>
+          )}
+          {id && (
+            <div className="border-t border-line bg-sunken px-6 py-4 text-[14px]">
+              <Link to={`/report/${id}`} className="link">
+                Open the report
+              </Link>
+            </div>
+          )}
+        </section>
       )}
     </div>
   )

@@ -60,10 +60,15 @@ def classify(checks: list[CheckResult], coverage: float) -> tuple[RiskLevel, lis
     return RiskLevel.low_risk, ["No significant malicious indicators within the available checks"]
 
 
+# Low and info findings are configuration notes for the site's owner ("Enable HSTS"); their advice stays on the
+# finding itself and is not repeated as advice to the person checking the link.
+_USER_ADVICE_SEVERITIES = {Severity.medium, Severity.high, Severity.critical}
+
+
 def recommendations_for(level: RiskLevel, checks: list[CheckResult]) -> list[str]:
     recs = list(_LEVEL_RECOMMENDATIONS[level])
     for c in checks:
         for f in c.findings:
-            if f.recommendation and f.recommendation not in recs:
+            if f.severity in _USER_ADVICE_SEVERITIES and f.recommendation and f.recommendation not in recs:
                 recs.append(f.recommendation)
     return recs

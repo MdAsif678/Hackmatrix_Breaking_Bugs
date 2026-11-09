@@ -1,4 +1,4 @@
-// List of past investigations. Owner: P1.
+// List of past checks. Owner: P1.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
@@ -13,32 +13,59 @@ export default function HistoryPage() {
     api.listReports().then(setReports).catch((e: Error) => setError(e.message))
   }, [])
 
-  if (error) return <p className="text-red-300">Could not load history: {error}</p>
-  if (!reports) return <p className="text-slate-400">Loading…</p>
-
   return (
     <div>
-      <h1 className="text-2xl font-bold">Investigation history</h1>
-      {reports.length === 0 ? (
-        <p className="mt-4 text-slate-400">
-          No investigations yet. <Link to="/" className="text-sky-400 hover:underline">Start one</Link>.
-        </p>
-      ) : (
-        <ul className="mt-6 divide-y divide-slate-800 rounded-xl border border-slate-800">
-          {reports.map((r) => (
-            <li key={r.id}>
-              <Link to={`/report/${r.id}`} className="flex items-center gap-4 px-4 py-3 hover:bg-slate-900">
-                <RiskBadge level={r.risk_level} />
-                <span className="min-w-0 flex-1 truncate font-mono text-sm">
-                  {r.input_type === 'message' ? `✉ ${r.input}` : r.normalized_target ?? r.input}
-                </span>
-                {r.chain && <span className="text-xs text-violet-300">on-chain</span>}
-                <span className="shrink-0 text-xs text-slate-500">{new Date(r.created_at).toLocaleString()}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="t-h2">History</h1>
+          <p className="t-lead mt-2">Every link and message checked on this TrustLens server, newest first.</p>
+        </div>
+        <Link to="/check" className="btn btn-primary">
+          Check a link
+        </Link>
+      </div>
+
+      <div className="mt-10">
+        {error && <p className="text-risk-malicious">Could not load the history: {error}</p>}
+        {!error && !reports && <p className="text-muted">Loading…</p>}
+        {reports && reports.length === 0 && (
+          <div className="panel p-8 text-muted">
+            Nothing checked yet.{' '}
+            <Link to="/check" className="link">
+              Check your first link
+            </Link>
+            .
+          </div>
+        )}
+        {reports && reports.length > 0 && (
+          <div className="panel overflow-hidden">
+            <div className="hidden grid-cols-[180px_1fr_170px] gap-6 border-b border-line bg-sunken px-5 py-3 md:grid">
+              <span className="t-label">Verdict</span>
+              <span className="t-label">Link or message</span>
+              <span className="t-label">Checked</span>
+            </div>
+            <ul className="divide-y divide-line">
+              {reports.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    to={`/report/${r.id}`}
+                    className="grid gap-2 px-5 py-4 transition-colors hover:bg-[rgb(237_237_239/0.03)] md:grid-cols-[180px_1fr_170px] md:items-center md:gap-6"
+                  >
+                    <span className="flex items-center gap-2">
+                      <RiskBadge level={r.risk_level} />
+                      {r.chain && <span className="text-[12px] text-faint">sealed</span>}
+                    </span>
+                    <span className="min-w-0 truncate font-mono text-[14px] text-ink">
+                      {r.input_type === 'message' ? `Message: ${r.input}` : r.normalized_target ?? r.input}
+                    </span>
+                    <span className="text-[13px] text-faint">{new Date(r.created_at).toLocaleString()}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

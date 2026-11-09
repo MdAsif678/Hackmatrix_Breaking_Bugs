@@ -41,3 +41,14 @@ def test_two_mediums_is_suspicious():
 
 def test_clean_is_low_risk():
     assert classify([_check("ok", _f(Severity.low))], 1.0)[0] == RiskLevel.low_risk
+
+
+def test_owner_advice_from_low_findings_not_in_user_recommendations():
+    from app.risk.engine import recommendations_for
+
+    low = Finding(id="headers.missing_csp", check="headers", title="t", severity=Severity.low, evidence="e",
+                  source="s", recommendation="Implement a Content-Security-Policy")
+    high = Finding(id="url.typosquat", check="url", title="t", severity=Severity.high, evidence="e", source="s",
+                   recommendation="Type paypal.com yourself")
+    recs = recommendations_for(RiskLevel.suspicious, [_check("ok", low, high)])
+    assert "Type paypal.com yourself" in recs and "Implement a Content-Security-Policy" not in recs
