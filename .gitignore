@@ -32,3 +32,8 @@ Thumbs.db
 
 # Local Claude preview config (machine-specific paths)
 .claude/launch.json
+
+# Git token and credential security
+*.token
+token.txt
+.git-credentials

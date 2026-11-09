@@ -1,5 +1,4 @@
-// "Blockchain seal" block in the report sidebar. Owner: P4 (styled by P1 to match the site).
-// Seal the report (its SHA-256 fingerprint goes on Ethereum), copy the fingerprint, verify it later.
+// "Blockchain seal" block in the report sidebar. Owner: P4 (polished for Sepolia testnet).
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
@@ -12,9 +11,33 @@ interface Props {
 
 const short = (h: string) => (h.length > 18 ? `${h.slice(0, 10)}…${h.slice(-8)}` : h)
 
+function CopyBtn({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback if clipboard API unavailable
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={`Copy ${label}`}
+      className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-mono text-muted hover:text-ink rounded border border-line hover:border-line-strong hover:bg-white/5 transition-colors cursor-pointer select-none"
+    >
+      {copied ? <span className="text-risk-low font-sans">Copied</span> : 'Copy'}
+    </button>
+  )
+}
+
 export function RegistryPanel({ report, onRegistered }: Props) {
   const [busy, setBusy] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function register() {
@@ -29,15 +52,12 @@ export function RegistryPanel({ report, onRegistered }: Props) {
     }
   }
 
-  async function copyHash(hash: string) {
-    try {
-      await navigator.clipboard.writeText(hash)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      /* clipboard blocked: the full hash is still in the tooltip */
-    }
-  }
+  const etherscanTxUrl = report.chain
+    ? `https://sepolia.etherscan.io/tx/${report.chain.tx_hash}`
+    : null
+  const etherscanContractUrl = report.chain
+    ? `https://sepolia.etherscan.io/address/${report.chain.contract_address}`
+    : null
 
   return (
     <section className="panel p-5" aria-labelledby="seal-h">
@@ -45,60 +65,105 @@ export function RegistryPanel({ report, onRegistered }: Props) {
         <h2 id="seal-h" className="whitespace-nowrap text-[15px] font-medium">
           Blockchain seal
         </h2>
-        <span className="whitespace-nowrap font-mono text-[12px] capitalize text-faint">{report.chain ? report.chain.network : 'Sepolia'}</span>
+        <span className="whitespace-nowrap font-mono text-[12px] capitalize text-faint">
+          {report.chain ? report.chain.network : 'Sepolia'}
+        </span>
       </div>
+
       <p className="mt-2 text-[14px] leading-relaxed text-faint">
-        Stores a SHA-256 fingerprint of this report on Ethereum, so anyone can later prove it was not changed. The link
-        and any personal details stay off-chain.
+        Cryptographic sealing commits a tamper-proof SHA-256 fingerprint of this investigation to the Ethereum Sepolia
+        testnet, creating permanent mathematical proof that the evidence has not been altered.
       </p>
 
       {report.chain ? (
         <>
           <div className="mt-4 flex items-center gap-2 text-[13px] text-risk-low">
             <span className="h-1.5 w-1.5 rounded-full bg-risk-low" />
-            Sealed
+            Sealed on Sepolia
           </div>
-          <dl className="mt-3 grid gap-2 border-t border-line pt-3 text-[13px]">
+
+          <dl className="mt-3 grid gap-2.5 border-t border-line pt-3 text-[13px]">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-faint">Fingerprint</dt>
-              <dd className="flex items-center gap-2">
+              <dd className="flex items-center gap-1.5">
                 <span className="font-mono text-muted" title={report.chain.report_hash}>
                   {short(report.chain.report_hash)}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => copyHash(report.chain!.report_hash)}
-                  className="rounded-full border border-line px-2 py-0.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
-                  aria-label="Copy the full fingerprint"
-                >
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
+                <CopyBtn text={report.chain.report_hash} label="fingerprint hash" />
               </dd>
             </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-faint">Record</dt>
+
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-faint">Record ID</dt>
               <dd className="font-mono text-muted">#{report.chain.chain_report_id}</dd>
             </div>
-            <div className="flex justify-between gap-3">
+
+            <div className="flex items-center justify-between gap-3">
               <dt className="text-faint">Transaction</dt>
-              <dd className="font-mono text-muted" title={report.chain.tx_hash}>
-                {short(report.chain.tx_hash)}
+              <dd className="flex items-center gap-1.5">
+                <a
+                  href={etherscanTxUrl!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="link link-accent font-mono text-muted"
+                  title="View transaction on Sepolia Etherscan"
+                >
+                  {short(report.chain.tx_hash)} ↗
+                </a>
+                <CopyBtn text={report.chain.tx_hash} label="transaction hash" />
               </dd>
             </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-faint">Contract</dt>
+              <dd className="flex items-center gap-1.5">
+                <a
+                  href={etherscanContractUrl!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="link link-accent font-mono text-muted"
+                  title="View contract on Sepolia Etherscan"
+                >
+                  {short(report.chain.contract_address)} ↗
+                </a>
+                <CopyBtn text={report.chain.contract_address} label="contract address" />
+              </dd>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-faint">Network</dt>
+              <dd className="font-mono text-muted uppercase">{report.chain.network}</dd>
+            </div>
           </dl>
-          <Link to={`/verify/${report.id}`} className="btn btn-secondary mt-4 w-full">
-            Verify this report
-          </Link>
+
+          <div className="mt-4 flex flex-col gap-2">
+            <Link to={`/verify/${report.id}`} className="btn btn-secondary w-full">
+              Verify this report
+            </Link>
+            <a
+              href={etherscanTxUrl!}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex justify-center text-[12px] text-faint hover:text-ink transition-colors mt-1"
+            >
+              View on Sepolia Etherscan ↗
+            </a>
+          </div>
         </>
       ) : (
-        <button type="button" onClick={register} disabled={busy} className="btn btn-secondary mt-4 w-full">
+        <button
+          type="button"
+          onClick={register}
+          disabled={busy}
+          className="btn btn-secondary mt-4 w-full"
+        >
           {busy && (
-            <svg className="spin" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+            <svg className="spin mr-2" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
               <circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.6" />
               <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           )}
-          {busy ? 'Sealing' : 'Seal this report'}
+          {busy ? 'Sealing on Sepolia…' : 'Seal this report on-chain'}
         </button>
       )}
 

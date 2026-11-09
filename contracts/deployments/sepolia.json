@@ -1,0 +1,8 @@
+{
+  "network": "sepolia",
+  "chain_id": 11155111,
+  "address": "0x089F4b08bcDBDEA5e3328D38676A63017266cb2e",
+  "deploy_tx": "0x36b9736b270e67485ed59a2db27d1970b710774a2fab8d06c2e8757c31451638",
+  "deployer": "0xf4f0a75a18b6F88d04F8564BF472E1EBDAC61256",
+  "deployed_at": "2026-11-09T11:42:33.078Z"
+}
