@@ -49,13 +49,20 @@ report; low coverage yields **Inconclusive** rather than a false "Low Risk".
 
 ## Security checks (P2)
 
-<!-- P2: url / dns / threat_intel / headers analyzers — inputs, sources, findings -->
+The security suite runs 4 passive, non-intrusive analyzers concurrently:
+- **Lexical URL analysis (`app/analyzers/url_analyzer.py`):** Offline heuristic checks for typosquatting (Levenshtein distance vs `data/brands.json`), IDN homoglyphs (`xn--` punycode and mixed Unicode scripts), brand keywords in subdomains, userinfo `@` obfuscation, raw IP hosts, URL shorteners, open redirect parameters, and credential keywords.
+- **DNS & Domain Age (`app/analyzers/dns_analyzer.py`):** Concurrent query of `A`, `AAAA`, `MX`, and `NS` records using `dnspython`. Fetches registration timestamps via standard RDAP (`rdap.org`) to flag newly registered domains (<30 days = high, <180 days = medium).
+- **Threat Intelligence (`app/analyzers/threat_intel.py`):** Queries authoritative zero-day feeds: OpenPhish (cached 1 hr), URLhaus (abuse.ch API), Google Safe Browsing v4, and the Phishing Army community blocklist (~140k domains, cached 6 hrs). Verified URL matches return `authoritative=True` triggering immediate `confirmed_malicious` classification.
+- **Passive Security Headers (`app/analyzers/headers_analyzer.py`):** Live evaluation of transport security and framing policies via `safe_fetch.py` (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and mixed-content detection).
 
 ## AI analysis & correlation
 
 **Explanations (P1):** see table above and `docs/security-methodology.md` → AI safety.
 
-**Scam message analysis (P3):** <!-- P3: indicator extraction, rules, Gemini classification, quote verification -->
+**Scam message analysis (P3):** `backend/app/analyzers/message_analyzer.py`
+- **Indicator extraction:** Extracts `urls`, `domains`, `emails`, `phones` (Indian mobiles & 1800 numbers), `upi_ids` (strictly differentiated from emails by handle structure), and `amounts` (`₹`, `Rs`, `INR`).
+- **Scam-pattern rules:** 10 deterministic rules targeting OTP theft, remote access apps (AnyDesk, TeamViewer), employment upfront fees, brand impersonation, fake KYC/block threats, payment demands, lottery/cashback lures, URL shorteners, artificial urgency (strictly capped at Low), and suspicious personal contact numbers.
+- **AI reasoning & Anti-hallucination:** Integrates Gemini through `llm.py` with `mask_pii()` and delimiter blocks. Every AI-detected tactic must contain a verbatim quote present in the input text; ungrounded tactics are automatically dropped. AI-only findings are capped at Medium severity and never set final risk levels alone.
 
 **Correlation (P1):** indicators extracted per report — registrable domain, server IPs, TLS certificate fingerprint,
 emails, phone numbers, UPI ids — plus message text similarity (≥ 80%). IPs shared by ≥ 5 different domains are

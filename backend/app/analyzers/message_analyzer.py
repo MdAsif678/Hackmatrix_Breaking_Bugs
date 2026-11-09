@@ -358,10 +358,26 @@ def run_scam_rules(
         )
 
     # 9. Artificial Urgency / Pressure Tactics (Low - never higher)
-    urgency_words = ["urgent", "immediately", "today only", "within 24 hours", "last chance", "act now", "limited time"]
+    urgency_words = [
+        "urgent",
+        "urgently",
+        "immediately",
+        "today",
+        "tonight",
+        "within 24 hours",
+        "last chance",
+        "act now",
+        "limited time",
+        "expires today",
+        "suspended",
+        "deactivated",
+    ]
     urgency_sentence = None
     for s in sentences:
         s_low = s.lower()
+        # Do not flag normal delivery updates as urgent
+        if any(deliv in s_low for deliv in ["out for delivery", "arrive today", "arriving today"]):
+            continue
         if any(w in s_low for w in urgency_words):
             urgency_sentence = s
             break
