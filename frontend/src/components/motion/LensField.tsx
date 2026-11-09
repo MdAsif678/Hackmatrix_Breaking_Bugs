@@ -10,6 +10,7 @@ uniform float uTime;
 uniform vec2 uMouse;
 uniform float uLens;
 uniform float uIntro;
+uniform float uLine;   // line thickness in canvas pixels (scaled with resolution)
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p) {
@@ -35,11 +36,11 @@ void main() {
   vec2 q = vec2(fbm(uv * 1.6 + t), fbm(uv * 1.6 - t + 3.1));
   float f = fbm(uv * 1.7 + q * 1.3 + t * 0.4) * 26.0;
   float w = fwidth(f);
-  float line = 1.0 - smoothstep(0.0, w * 1.5, abs(fract(f) - 0.5));
+  float line = 1.0 - smoothstep(0.0, w * uLine, abs(fract(f) - 0.5));
   // Through the lens you see more: a second set of finer lines between the main ones.
   float f2 = f * 3.0;
   float w2 = fwidth(f2);
-  float fine = 1.0 - smoothstep(0.0, w2 * 1.5, abs(fract(f2) - 0.5));
+  float fine = 1.0 - smoothstep(0.0, w2 * uLine, abs(fract(f2) - 0.5));
 
   vec3 ground = vec3(0.039);
   vec3 outside = vec3(0.93) * 0.075;
@@ -81,7 +82,12 @@ export function LensField({ className = '', play = true }: { className?: string;
     }
     const prog = gl.createProgram()!
     const vs = compile(gl.VERTEX_SHADER, VERT)
-    const fs = compile(gl.FRAGMENT_SHADER, `#extension GL_OES_standard_derivatives : enable\nprecision mediump float;\n${FRAG}`)
+    // highp where the GPU has it: Android's mediump is a 16-bit float, too coarse for the noise and for pixel
+    // coordinates on tall screens, which shows up as blocky, stair-stepped lines.
+    const fs = compile(
+      gl.FRAGMENT_SHADER,
+      `#extension GL_OES_standard_derivatives : enable\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n${FRAG}`,
+    )
     gl.attachShader(prog, vs)
     gl.attachShader(prog, fs)
     gl.linkProgram(prog)
@@ -100,12 +106,13 @@ export function LensField({ className = '', play = true }: { className?: string;
     gl.enableVertexAttribArray(loc)
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
     const u = (n: string) => gl.getUniformLocation(prog, n)
-    const uRes = u('uRes'), uTime = u('uTime'), uMouse = u('uMouse'), uLens = u('uLens'), uIntro = u('uIntro')
+    const uRes = u('uRes'), uTime = u('uTime'), uMouse = u('uMouse'), uLens = u('uLens'), uIntro = u('uIntro'), uLine = u('uLine')
 
     const reduced = prefersReducedMotion()
     const coarse = window.matchMedia('(pointer: coarse)').matches
-    // Render below device resolution: the field is soft by design and this keeps it cheap.
-    const scale = Math.min(window.devicePixelRatio || 1, coarse ? 1 : 1.5) * 0.75
+    // Resolution: phones get up to 2x (dense screens; a low-res canvas stretched over them looks blurry);
+    // desktops up to 1.25x, sharp at normal viewing distance and still cheap on big screens.
+    const scale = Math.min(window.devicePixelRatio || 1, coarse ? 2 : 1.25)
     let w = 0, h = 0
     const resize = () => {
       // Layout size, not getBoundingClientRect: the hero zooms with transforms, which must not change the resolution.
@@ -173,6 +180,7 @@ export function LensField({ className = '', play = true }: { className?: string;
       gl.uniform2f(uMouse, pos.x, pos.y)
       gl.uniform1f(uLens, Math.min(w, h) * (coarse ? 0.22 : 0.17))
       gl.uniform1f(uIntro, 1 - Math.pow(1 - intro, 3))
+      gl.uniform1f(uLine, 1.1 * scale + 0.4) // about 1.2 CSS px wide at any resolution
       gl.drawArrays(gl.TRIANGLES, 0, 3)
     }
     const loop = () => {
