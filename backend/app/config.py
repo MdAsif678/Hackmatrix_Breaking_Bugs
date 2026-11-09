@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # Websites allowed to call this API from a browser. Local dev is always allowed; add the live frontend with
     # CORS_ORIGINS=https://your-app.vercel.app (comma-separated for several).
     cors_origins: str = ""
+    # The live Vercel site and its preview deployments (hackmatrix-breaking-bugs-<hash>-<team>.vercel.app).
+    # The API is public and uses no cookies or logins, so allowing these is safe.
+    cors_origin_regex: str = r"https://hackmatrix-breaking-bugs(-[a-z0-9-]+)?\.vercel\.app"
 
     @property
     def allowed_origins(self) -> list[str]:

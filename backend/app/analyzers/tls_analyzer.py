@@ -112,8 +112,13 @@ def _unverified_handshake(hs: _Handshake, host: str) -> None:
         sock.close()
 
 
+class NoHttpsError(ConnectionError):
+    """The server actively refused port 443: the site does not offer HTTPS."""
+
+
 def _handshakes(host: str, ips: list[str]) -> _Handshake:
     last: Optional[Exception] = None
+    refused = False
     for ip in ips[:2]:
         hs = _Handshake(ip=ip)
         try:
@@ -123,7 +128,11 @@ def _handshakes(host: str, ips: list[str]) -> _Handshake:
             return hs
         except OSError as exc:  # could not even open a TCP connection to this IP
             last = exc
-    raise ConnectionError(f"could not connect to port 443 ({type(last).__name__}: {last})")
+            refused = refused or isinstance(exc, ConnectionRefusedError)
+    # Refused = the site has no HTTPS (a fact about the site). A timeout or network error only means we could not
+    # reach it from here, which says nothing about the site.
+    error = NoHttpsError if refused else ConnectionError
+    raise error(f"could not connect to port 443 ({type(last).__name__}: {last})")
 
 
 # ---------------------------------------------------------------- certificate helpers
@@ -530,7 +539,7 @@ async def analyze(target: str) -> CheckResult:
 
         try:
             hs = await asyncio.to_thread(_handshakes, host, ips)
-        except ConnectionError as exc:
+        except NoHttpsError as exc:
             ct_task.cancel()
             return CheckResult(
                 check="tls", status="ok",
@@ -539,6 +548,10 @@ async def analyze(target: str) -> CheckResult:
                              rec="Never enter passwords or payment details on a site without HTTPS.")],
                 data={"https_available": False},
             )
+        except ConnectionError as exc:
+            ct_task.cancel()
+            return CheckResult(check="tls", status="error",
+                               limitations=[f"The site could not be reached on port 443 from this server ({exc})."])
 
         if hs.der is None:
             ct_task.cancel()

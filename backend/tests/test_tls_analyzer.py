@@ -122,3 +122,33 @@ def test_internal_target_rejected():
     import asyncio
     result = asyncio.run(tls.analyze("https://127.0.0.1/"))
     assert result.status == "error" and "non-public" in result.limitations[0]
+
+
+def test_timeout_is_unreachable_not_no_https(monkeypatch):
+    import asyncio
+
+    async def ips(host, port):
+        return ["203.0.113.9"]
+
+    def timeout(*a, **k):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(tls, "resolve_and_validate", ips)
+    monkeypatch.setattr(tls.socket, "create_connection", timeout)
+    result = asyncio.run(tls.analyze("https://slow.example/"))
+    assert result.status == "error" and not result.findings and "could not be reached" in result.limitations[0]
+
+
+def test_refused_port_443_means_no_https(monkeypatch):
+    import asyncio
+
+    async def ips(host, port):
+        return ["203.0.113.9"]
+
+    def refused(*a, **k):
+        raise ConnectionRefusedError("refused")
+
+    monkeypatch.setattr(tls, "resolve_and_validate", ips)
+    monkeypatch.setattr(tls.socket, "create_connection", refused)
+    result = asyncio.run(tls.analyze("http://plain-http.example/"))
+    assert result.status == "ok" and [f.id for f in result.findings] == ["tls.no_https"]

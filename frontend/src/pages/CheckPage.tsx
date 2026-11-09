@@ -6,7 +6,7 @@ import { Arrow } from '../components/Brand'
 
 type Mode = 'url' | 'message'
 
-const URL_EXAMPLES = ['github.com', 'expired.badssl.com', 'paypa1-secure-login.com', 'revoked.badssl.com']
+const URL_EXAMPLES = ['github.com', 'expired-rsa-dv.ssl.com', 'revoked-rsa-dv.ssl.com', 'paypa1-secure-login.com']
 const MESSAGE_EXAMPLE =
   'Dear customer, your SBI account KYC expires today. Update now at http://sbi-kyc-verify.example/login or your account will be blocked. Share the OTP sent to you to complete verification.'
 

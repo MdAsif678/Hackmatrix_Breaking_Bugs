@@ -82,3 +82,17 @@ def test_cors_origins_from_env(monkeypatch):
     assert settings.allowed_origins == [
         "http://localhost:5173", "http://127.0.0.1:5173", "https://trustlens.vercel.app", "https://demo.example",
     ]
+
+
+def test_cors_allows_the_vercel_site_and_its_previews(client):
+    def preflight(origin):
+        return client.options("/api/analyze/url", headers={
+            "Origin": origin, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"})
+
+    for ok in ("https://hackmatrix-breaking-bugs.vercel.app",
+               "https://hackmatrix-breaking-bugs-i7zmkmgio-code-blooded-f46a.vercel.app",
+               "http://localhost:5173"):
+        r = preflight(ok)
+        assert r.status_code == 200 and r.headers["access-control-allow-origin"] == ok, ok
+    assert preflight("https://evil.example").status_code == 400
+    assert preflight("https://hackmatrix-breaking-bugs.vercel.app.evil.example").status_code == 400
