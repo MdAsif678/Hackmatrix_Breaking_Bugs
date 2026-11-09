@@ -43,7 +43,12 @@ class Settings(BaseSettings):
     cors_origins: str = ""
     # The live Vercel site and its preview deployments (hackmatrix-breaking-bugs-<hash>-<team>.vercel.app).
     # The API is public and uses no cookies or logins, so allowing these is safe.
-    cors_origin_regex: str = r"https://hackmatrix-breaking-bugs(-[a-z0-9-]+)?\.vercel\.app"
+    # Also the free TrustLens names the production domain may be renamed to.
+    cors_origin_regex: str = (
+        r"https://(hackmatrix-breaking-bugs(-[a-z0-9-]+)?"
+        r"|trust-lens|trustlensapp|trustlens-check|trustlens-in|trustlens-india|gettrustlens|usetrustlens"
+        r"|trustlens-hackmatrix|trustlens-scamcheck)\.vercel\.app"
+    )
 
     @property
     def allowed_origins(self) -> list[str]:

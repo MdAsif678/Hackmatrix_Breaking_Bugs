@@ -79,6 +79,8 @@ def mask_pii(text: str) -> str:
     def digits(m: re.Match) -> str:
         raw = m.group(1)
         only = re.sub(r"\D", "", raw)
+        if len(only) < 10:  # dates (2016-08-02), order or tracking codes: not personal, keep them
+            return raw
         prefix = "+" + only[:2] + " " if raw.startswith("+") and len(only) > 10 else ""
         return f"{prefix}{'X' * 6}{only[-4:]}"
 

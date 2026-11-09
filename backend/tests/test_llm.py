@@ -130,3 +130,10 @@ def test_auth_error_does_not_retry(gemini_on):
 
     assert run(llm.llm_json("s", "u", Verdict, client=_client(handler))) is None
     assert len(calls) == 1
+
+
+def test_mask_pii_keeps_dates_and_short_codes():
+    text = "notAfter=2016-08-02, order 405-12345, call 9876543210 or card 4111 1111 1111 1111"
+    masked = llm.mask_pii(text)
+    assert "2016-08-02" in masked and "405-12345" in masked
+    assert "9876543210" not in masked and "4111 1111 1111 1111" not in masked

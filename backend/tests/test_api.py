@@ -96,3 +96,10 @@ def test_cors_allows_the_vercel_site_and_its_previews(client):
         assert r.status_code == 200 and r.headers["access-control-allow-origin"] == ok, ok
     assert preflight("https://evil.example").status_code == 400
     assert preflight("https://hackmatrix-breaking-bugs.vercel.app.evil.example").status_code == 400
+
+
+def test_cors_allows_planned_trustlens_domains(client):
+    for origin, allowed in (("https://trust-lens.vercel.app", True), ("https://trustlensapp.vercel.app", True),
+                            ("https://trustlens.vercel.app", False), ("https://trust-lens.vercel.app.evil.example", False)):
+        r = client.options("/api/health", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
+        assert (r.status_code == 200) is allowed, origin
