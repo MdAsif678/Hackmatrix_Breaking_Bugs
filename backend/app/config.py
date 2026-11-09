@@ -38,7 +38,15 @@ class Settings(BaseSettings):
     mock_analyzers: bool = False
     max_message_urls: int = 3
     db_path: Path = DATA_DIR / "app.db"
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Websites allowed to call this API from a browser. Local dev is always allowed; add the live frontend with
+    # CORS_ORIGINS=https://your-app.vercel.app (comma-separated for several).
+    cors_origins: str = ""
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        local = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        extra = [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip()]
+        return local + extra
 
 
 settings = Settings()

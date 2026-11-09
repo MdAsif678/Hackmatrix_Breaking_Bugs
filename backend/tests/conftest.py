@@ -10,6 +10,8 @@ def temp_db(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "db_path", tmp_path / "test.db")
     monkeypatch.setattr(settings, "mock_analyzers", False)
     monkeypatch.setattr(settings, "llm_api_key", "")  # never call the real AI from tests
+    monkeypatch.setattr(settings, "urlhaus_auth_key", "")  # never call real threat-intel APIs from tests
+    monkeypatch.setattr(settings, "google_safe_browsing_api_key", "")
     monkeypatch.setattr(settings, "sepolia_rpc_url", "")  # never send real blockchain transactions
 
 

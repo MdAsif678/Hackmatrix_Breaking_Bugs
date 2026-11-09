@@ -73,3 +73,12 @@ def test_internal_links_in_messages_not_opened(client):
     targets = {c["target"] for c in report["checks"] if c["check"] != "message"}
     assert targets == {"http://unresolvable-site-zzzz.example/x"}
     assert any("private/internal" in lim for lim in report["limitations"])
+
+
+def test_cors_origins_from_env(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "cors_origins", "https://trustlens.vercel.app/, https://demo.example")
+    assert settings.allowed_origins == [
+        "http://localhost:5173", "http://127.0.0.1:5173", "https://trustlens.vercel.app", "https://demo.example",
+    ]

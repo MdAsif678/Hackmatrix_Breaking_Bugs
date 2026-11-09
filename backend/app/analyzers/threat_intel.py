@@ -84,6 +84,40 @@ async def _get_phishing_army() -> tuple[set[str], str | None]:
             return _phishing_army_cache["hosts"], f"Phishing Army download failed: {type(exc).__name__}"
 
 
+# Big public platforms where anyone can upload files or pages. Criminals abuse them too, so threat feeds list them as
+# "hosts" (URLhaus has 60,000+ malware links on github.com). A host-only match there says nothing about this link.
+SHARED_PLATFORMS = {
+    "github.com", "githubusercontent.com", "github.io", "gitlab.com", "bitbucket.org",
+    "google.com", "googleusercontent.com", "googleapis.com", "drive.google.com", "docs.google.com", "sites.google.com",
+    "forms.gle", "firebaseapp.com", "web.app", "appspot.com", "blogspot.com",
+    "dropbox.com", "dropboxusercontent.com", "onedrive.live.com", "1drv.ms", "sharepoint.com", "live.com",
+    "discord.com", "discordapp.com", "discordapp.net", "mediafire.com", "mega.nz", "box.com", "wetransfer.com",
+    "amazonaws.com", "cloudfront.net", "azureedge.net", "windows.net", "pages.dev", "workers.dev", "vercel.app",
+    "netlify.app", "herokuapp.com", "wordpress.com", "wixsite.com", "weebly.com", "t.me", "telegram.org",
+}
+SHARED_HOST_URL_COUNT = 1000  # a host with this many reported links is a platform, not a dedicated malware server
+
+
+def _is_shared_platform(host: str, url_count: int | None = None) -> bool:
+    h = host.lower().removeprefix("www.")
+    if any(h == d or h.endswith("." + d) for d in SHARED_PLATFORMS):
+        return True
+    return url_count is not None and url_count >= SHARED_HOST_URL_COUNT
+
+
+def _platform_note(host: str, source: str, detail: str) -> Finding:
+    return Finding(
+        id=f"threat_intel.{source.lower().replace(' ', '_')}_platform",
+        check="threat_intel",
+        title=f"{host} is a public platform that has hosted reported content",
+        severity=Severity.info,
+        evidence=f"{source}: {detail}. This exact link is not listed.",
+        source=source,
+        impact="Anyone can upload to this platform, so its name being on file says nothing about this particular link.",
+        authoritative=False,
+    )
+
+
 async def analyze(target: str) -> CheckResult:
     """Query threat intelligence feeds for target URL and host."""
     try:
@@ -118,6 +152,8 @@ async def analyze(target: str) -> CheckResult:
                         authoritative=True,
                     )
                 )
+            elif host and host in feed_hosts and _is_shared_platform(host):
+                findings.append(_platform_note(host, "OpenPhish", "other phishing pages are hosted on this platform"))
             elif host and host in feed_hosts:
                 findings.append(
                     Finding(
@@ -200,14 +236,22 @@ async def analyze(target: str) -> CheckResult:
                         )
                         if host_resp.status_code == 200:
                             host_data = host_resp.json()
-                            if host_data.get("query_status") == "ok":
+                            url_count = int(host_data.get("url_count") or 0)
+                            host_urls = host_data.get("urls") or []
+                            online = sum(1 for u in host_urls if u.get("url_status") == "online")
+                            if host_data.get("query_status") == "ok" and _is_shared_platform(host, url_count):
+                                findings.append(_platform_note(
+                                    host, "URLhaus", f"{url_count:,} malware links have been reported on this platform"))
+                            elif host_data.get("query_status") == "ok":
                                 findings.append(
                                     Finding(
                                         id="threat_intel.urlhaus_host",
                                         check="threat_intel",
-                                        title="Host listed in URLhaus database",
+                                        title="Server known for spreading malware",
                                         severity=Severity.high,
-                                        evidence=f"Host '{host}' is known to URLhaus with associated malware URLs.",
+                                        evidence=f"URLhaus lists {url_count} malware link{'s' if url_count != 1 else ''} on "
+                                                 f"'{host}' ({online} of the latest {len(host_urls)} still online), first seen "
+                                                 f"{host_data.get('firstseen', 'unknown')}.",
                                         source="URLhaus",
                                         impact="The host has an active or recent history of distributing malware.",
                                         recommendation="Treat all content from this host as untrusted.",

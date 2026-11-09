@@ -129,3 +129,19 @@ def test_phishing_army_host_match(monkeypatch):
     assert "Phishing Army" in hit.data["sources_checked"]
     clean = run(threat_intel.analyze("https://github.com/"))
     assert clean.status == "ok" and clean.findings == []
+
+
+@pytest.mark.parametrize(
+    "host,count,shared",
+    [
+        ("github.com", None, True),
+        ("raw.githubusercontent.com", None, True),
+        ("drive.google.com", None, True),
+        ("my-scam.pages.dev", None, True),
+        ("files.example-cdn.net", 62403, True),  # thousands of reports: a platform, not one bad server
+        ("45.168.132.19", 15, False),
+        ("evil-downloads.top", 3, False),
+    ],
+)
+def test_shared_platform_detection(host, count, shared):
+    assert threat_intel._is_shared_platform(host, count) is shared

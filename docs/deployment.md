@@ -61,7 +61,12 @@ The backend is a FastAPI Python 3.11+ application located in `backend/`.
    Under **Environment Variables**, add the secrets from your `.env`:
    - `LLM_PROVIDER`: `gemini`
    - `LLM_API_KEY`: *(Your Google Gemini API Key)*
-   - `LLM_MODEL`: `gemini-1.5-flash`
+   - `LLM_MODEL`: leave **empty** (the backend tries `gemini-flash-lite-latest`, then `gemini-3.5-flash`, then
+     `gemini-flash-latest`). Do not use `gemini-1.5-flash` or `gemini-2.5-flash`: Google has retired them.
+   - `GOOGLE_SAFE_BROWSING_API_KEY`: *(Google Safe Browsing key)*
+   - `URLHAUS_AUTH_KEY`: *(URLhaus Auth-Key)*
+   - `CORS_ORIGINS`: your Vercel URL, e.g. `https://trustlens-app.vercel.app` (comma-separated for several).
+     **Required:** without it the browser blocks every call from the live site to the API.
    - `SEPOLIA_RPC_URL`: *(Your Sepolia RPC provider URL)*
    - `REGISTRY_CONTRACT_ADDRESS`: *(Sepolia contract address)*
    - `REGISTRY_PRIVATE_KEY`: *(Throwaway wallet private key)*
@@ -72,3 +77,20 @@ The backend is a FastAPI Python 3.11+ application located in `backend/`.
    - Copy the Render web service URL (e.g. `https://trustlens-api.onrender.com`).
    - In Vercel, go to **Settings** → **Environment Variables** → update `VITE_API_URL` to `https://trustlens-api.onrender.com/api`.
    - Trigger a redeployment on Vercel.
+   - In Render, set `CORS_ORIGINS` to the Vercel URL (step 4) and redeploy the backend.
+
+---
+
+## 3. Things to know before the demo
+
+- **Free Render instances sleep after about 15 minutes idle.** The first check after that waits 30-60 seconds while
+  it wakes. Open `https://<your-api>.onrender.com/api/health` a minute before presenting.
+- **The database is a SQLite file on Render's disk, which is wiped on every redeploy** (history, links between
+  reports and sealed reports start empty). Do not redeploy between sealing a report and showing it.
+- **Blockchain:** the local Hardhat chain only runs on a laptop. The live site needs P4's Sepolia deployment
+  (`SEPOLIA_RPC_URL`, `REGISTRY_CONTRACT_ADDRESS`, `REGISTRY_PRIVATE_KEY`); until then "Seal this report" explains
+  what is missing.
+- **`VITE_API_URL` must be set on Vercel.** If it is empty, `vercel.json` sends `/api/...` to `index.html` and every
+  check fails.
+- **Python:** set `PYTHON_VERSION=3.11.9` on Render to match the version the project is tested on.
+- Never commit `.env`; paste secrets into the Vercel and Render dashboards only.
