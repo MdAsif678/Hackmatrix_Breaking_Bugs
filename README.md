@@ -84,12 +84,12 @@ backend keeps reports in a hosted Postgres database instead. See [deployment](do
 
 ## Team Breaking Bugs
 
-| Member | GitHub | Work |
-|---|---|---|
-| **Mohammed Asif Ali** (team lead) | [@MdAsif678](https://github.com/MdAsif678) | System architecture and backend core: FastAPI pipeline, deterministic risk engine, SSRF-safe fetching, TLS certificate analysis (OCSP/CRL revocation, Certificate Transparency, distrusted CAs). AI integration: Gemini wrapper and grounded explanations. Correlation engine and database design. Smart contract and the blockchain backend. Frontend design and UI/UX (landing page, motion, check and report pages). Deployment on Render and Vercel, integration and testing. |
-| **Md Azhar Khan** | [@azhar07kh-design](https://github.com/azhar07kh-design) | Security checks: lookalike and typosquatting detection, DNS and domain age (RDAP), threat-intelligence feeds (OpenPhish, URLhaus, Google Safe Browsing), security-header analysis, with their tests. Deployment guide and Vercel configuration. First version of the report dashboard. |
-| **Md Shahzeb Ali** | [@mdshahzebali](https://github.com/mdshahzebali) | Scam message analysis: extraction of links, phone numbers, UPI IDs, emails and amounts; scam-pattern rules (KYC, OTP theft, job fees, lottery lures); sample message dataset; AI classification that must quote the message as evidence; message test cases. |
-| **Md Adil Shamim** | [@adilsam-anon](https://github.com/adilsam-anon) | Web3: deployed the ThreatRegistry contract to Ethereum Sepolia, connected it to the backend, and built the blockchain seal and Verify pages with Etherscan links. |
+| Member | GitHub | Area | Work |
+|---|---|---|---|
+| **Mohammed Asif Ali** | [@MdAsif678](https://github.com/MdAsif678) | Core platform | Analysis pipeline and risk engine, TLS certificate checks and SSRF protection, Gemini AI explanations, database design, website design and deployment. |
+| **Md Azhar Khan** | [@azhar07kh-design](https://github.com/azhar07kh-design) | Security checks | Lookalike and typosquatting detection, domain age and DNS, threat-intelligence feeds (OpenPhish, URLhaus, Safe Browsing), security headers and the report dashboard. |
+| **Md Shahzeb Ali** | [@mdshahzebali](https://github.com/mdshahzebali) | Scam messages and AI | Extraction of links, phone numbers and UPI IDs, scam-pattern rules for KYC, OTP and job-fee frauds, sample message dataset and AI classification. |
+| **Md Adil Shamim** | [@adilsam-anon](https://github.com/adilsam-anon) | Blockchain | Smart contract deployment on Ethereum Sepolia, testnet wallet and network setup, blockchain seal and Verify pages with Etherscan links. |
 
 ## Tech stack
 
