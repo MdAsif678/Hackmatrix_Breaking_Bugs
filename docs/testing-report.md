@@ -1,8 +1,63 @@
-# Testing Report (Owner: P4 — everyone contributes)
+# Testing report
 
-Requirement: at least 3 suspicious and 3 benign test cases, with observed results.
+TrustLens is tested at three levels: automated unit tests, end-to-end runs of the real pipeline against live
+websites and messages, and the blockchain seal/verify flow on Ethereum Sepolia. The project brief asks for at least
+3 suspicious and 3 benign cases with observed results; this report has 27.
 
-## Security & Phishing Test Cases (P2 Contributions)
+## Summary (re-run on 10 Nov 2026, current build)
+
+| Level | Result |
+|---|---|
+| Backend unit tests (`cd backend && python -m pytest -q`) | **185 passed** |
+| Smart contract tests (`cd contracts && npx hardhat test`) | **6 passed** |
+| End-to-end cases below (live services, local backend) | **13 of 13 as expected** |
+| Storage on Postgres (save, update, list, correlation, full API) | **Passed** against a real Postgres server |
+| Blockchain: seal, verify, tamper detection on Sepolia | **Passed** (records #4 to #6) |
+
+## End-to-end cases (10 Nov 2026)
+
+Each input was submitted to the real API with live threat feeds, DNS, certificate checks and Gemini.
+"Checks ran" counts the checks that completed (a message also runs the link checks on the link inside it).
+
+| # | Case | Input | Expected | Observed | Checks ran | Time | Main reason | Pass |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Lookalike (digit for letter) | `paypa1-secure-login.com` | Suspicious or worse | **Suspicious** | 3/5 | 5.6 s | High-severity finding: url.typosquat | ✅ |
+| 2 | Lookalike (Cyrillic letter, punycode) | `xn--pple-43d.com` | Suspicious or worse | **Suspicious** | 3/5 | 6.0 s | High-severity finding: url.mixed_script | ✅ |
+| 3 | Expired certificate | `expired-rsa-dv.ssl.com` | Suspicious or worse | **Suspicious** | 5/5 | 6.3 s | High-severity finding: tls.expired | ✅ |
+| 4 | Revoked certificate | `revoked-rsa-dv.ssl.com` | High Risk | **High Risk** | 5/5 | 5.9 s | Critical finding(s): tls.revoked | ✅ |
+| 5 | Live phishing URL from the OpenPhish feed | live entry `www.facebook-q.blogspot.com/…` (not linked) | Confirmed Malicious | **Confirmed Malicious** | 5/5 | 8.4 s | Matched trusted threat intelligence: threat_intel.openphish | ✅ |
+| 6 | Benign: Google | `google.com` | Low Risk | **Low Risk** | 5/5 | 9.6 s | No significant malicious indicators within the available checks | ✅ |
+| 7 | Benign: GitHub | `github.com` | Low Risk | **Low Risk** | 5/5 | 11.3 s | No significant malicious indicators within the available checks | ✅ |
+| 8 | Benign: SBI official site | `onlinesbi.sbi` | Low Risk | **Low Risk** | 5/5 | 11.0 s | No significant malicious indicators within the available checks | ✅ |
+| 9 | Fake KYC SMS | `Dear customer, your SBI account KYC expires today. Update no…` | High Risk | **High Risk** | 4/6 | 7.7 s | Multiple high-severity findings: message.impersonation, url.brand_in_subdomain | ✅ |
+| 10 | Fake job offer asking for a fee | `Congratulations! You are selected for a work-from-home data …` | Suspicious or worse | **High Risk** | 1/1 | 8.2 s | Multiple high-severity findings: message.job_fee, message.payment_request | ✅ |
+| 11 | Fake bank OTP request | `HDFC Bank: Your account will be suspended in 2 hours. To sto…` | Suspicious or worse | **Suspicious** | 1/1 | 7.0 s | High-severity finding: message.otp_request | ✅ |
+| 12 | Benign OTP | `123456 is your OTP for login to your Swiggy account. Do not …` | Low Risk | **Low Risk** | 1/1 | 5.6 s | No significant malicious indicators within the available checks | ✅ |
+| 13 | Benign delivery update | `Your Amazon order #402-1234567-1234567 has been delivered. T…` | Low Risk | **Low Risk** | 1/1 | 6.0 s | No significant malicious indicators within the available checks | ✅ |
+
+Notes:
+- The two lookalike domains do not exist, so the website checks (certificate, security headers) cannot run on
+  them; the verdict comes from the address itself, as intended.
+- The live phishing URL was taken from the OpenPhish public feed at test time. TrustLens never executes page
+  scripts and only fetches pages through its SSRF-safe client.
+
+## Blockchain seal and verification (Ethereum Sepolia)
+
+Contract [`0x089F…cb2e`](https://sepolia.etherscan.io/address/0x089F4b08bcDBDEA5e3328D38676A63017266cb2e),
+official wallet `0xf4f0…1256`.
+
+| # | Case | Expected | Observed | Pass |
+|---|---|---|---|---|
+| 1 | Verify a report that was never sealed | "not sealed yet" | `not_registered` | ✅ |
+| 2 | Seal a report (live site, Render) | Transaction succeeds, record created | Record #4, [tx `0xe1d7…46d7`](https://sepolia.etherscan.io/tx/0xe1d79106692fcfe6d954f7f9167e758c504838b63190baab68ea663bd1d346d7), about 25 s | ✅ |
+| 3 | Verify the untouched sealed report | `verified` | Fingerprints match, submitter is the official wallet, status `active` | ✅ |
+| 4 | Press *Seal* again on the same report | No second transaction | Returns record #4 again | ✅ |
+| 5 | Edit a sealed report in the database (`scripts/tamper_report.py`, record #6) | `mismatch` | "The report was changed after it was sealed" | ✅ |
+| 6 | Seal from a wallet that is not TrustLens | `untrusted_submitter` | Covered by unit tests (`tests/test_chain.py`) and `scripts/fake_seal_attack.py` | ✅ |
+| 7 | Seal a report more than 24 h after it was created | `registered_late` | Covered by unit tests | ✅ |
+
+
+## Security and phishing test cases (Md Azhar Khan)
 
 | # | Input | Type | Expected | Observed risk level | Key findings | Notes |
 |---|---|---|---|---|---|---|
@@ -18,7 +73,7 @@ Requirement: at least 3 suspicious and 3 benign test cases, with observed result
 
 ---
 
-## Message & Scam Analysis Test Cases (P3 Contributions)
+## Message and scam test cases (Md Shahzeb Ali)
 
 | # | Input | Type | Expected | Observed risk level | Key findings | Notes |
 |---|---|---|---|---|---|---|

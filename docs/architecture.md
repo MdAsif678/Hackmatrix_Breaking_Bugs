@@ -1,4 +1,4 @@
-# Architecture (Owner: P1 — everyone adds their section)
+# Architecture
 
 ## Overview
 
@@ -16,16 +16,16 @@ which can be sealed on a blockchain for independent tamper-evidence.
  └───────────────┘       │                 │  3. risk/engine.py  → deterministic verdict + coverage    │
                          │                 │  4. ai/explain.py   → Gemini explanation (grounded)       │
                          │                 │  5. correlation     → related reports                      │
-                         │                 │  6. db.py (SQLite)  → report + indicator index             │
+                         │                 │  6. db.py           → report + indicator index (Postgres)  │
                          │                                                                              │
                          │  registry/chain.py ──web3.py──► ThreatRegistry.sol (local Hardhat / Sepolia) │
                          └──────────────────────────────────────────────────────────────────────────────┘
-       external (read-only): Gemini API · crt.sh / Cert Spotter · OCSP/CRL · URLhaus/OpenPhish (P2)
+       external (read-only): Gemini API · crt.sh / Cert Spotter · OCSP/CRL · URLhaus / OpenPhish / Safe Browsing
 ```
 
 **User flow (problem statement §5):** Submit → Investigate → Analyse → Assess risk → Report & verify on-chain.
 
-## Backend pipeline (P1)
+## Backend pipeline
 
 | Component | File | Responsibility |
 |---|---|---|
@@ -38,7 +38,7 @@ which can be sealed on a blockchain for independent tamper-evidence.
 | SSRF guard | `app/core/safe_fetch.py` | Public-IP-only fetching, IP pinning, per-hop redirect validation, size/time limits |
 | TLS analysis | `app/analyzers/tls_analyzer.py` | Certificate trust, identity, strength, revocation (OCSP/CRL), CT history, distrusted CAs |
 | Correlation | `app/correlation/engine.py` | Indexes indicators per report; links reports by exact matches; labels each link `same_site` or `campaign` |
-| Storage | `app/db.py` | SQLite: `reports` (full JSON) + `indicators` (kind, value) index |
+| Storage | `app/db.py` | `reports` (full JSON) + `indicators` (kind, value) index. Hosted Postgres (Neon) in production via `DATABASE_URL`; SQLite file `backend/data/app.db` locally |
 | Registry | `app/registry/hashing.py`, `chain.py` | Canonical SHA-256 of a report; submit/verify against the contract with 3 checks |
 
 **Report format:** `app/schemas.py` (mirrored in `frontend/src/types.ts`). Every finding carries severity, evidence,
@@ -47,7 +47,7 @@ source, impact and recommendation; every report carries coverage, limitations an
 **Failure handling:** a failing or slow check becomes `status="error"` with a limitation instead of breaking the
 report; low coverage yields **Inconclusive** rather than a false "Low Risk".
 
-## Security checks (P2)
+## Security checks
 
 The security suite runs 4 passive, non-intrusive analyzers concurrently:
 - **Lexical URL analysis (`app/analyzers/url_analyzer.py`):** Offline heuristic checks for typosquatting (Levenshtein distance vs `data/brands.json`), IDN homoglyphs (`xn--` punycode and mixed Unicode scripts), brand keywords in subdomains, userinfo `@` obfuscation, raw IP hosts, URL shorteners, open redirect parameters, and credential keywords.
@@ -57,21 +57,21 @@ The security suite runs 4 passive, non-intrusive analyzers concurrently:
 
 ## AI analysis & correlation
 
-**Explanations (P1):** see table above and `docs/security-methodology.md` → AI safety.
+**Explanations:** see table above and `docs/security-methodology.md` → AI safety.
 
-**Scam message analysis (P3):** `backend/app/analyzers/message_analyzer.py`
+**Scam message analysis:** `backend/app/analyzers/message_analyzer.py`
 - **Indicator extraction:** Extracts `urls`, `domains`, `emails`, `phones` (Indian mobiles & 1800 numbers), `upi_ids` (strictly differentiated from emails by handle structure), and `amounts` (`₹`, `Rs`, `INR`).
 - **Scam-pattern rules:** 10 deterministic rules targeting OTP theft, remote access apps (AnyDesk, TeamViewer), employment upfront fees, brand impersonation, fake KYC/block threats, payment demands, lottery/cashback lures, URL shorteners, artificial urgency (strictly capped at Low), and suspicious personal contact numbers.
 - **AI reasoning & Anti-hallucination:** Integrates Gemini through `llm.py` with `mask_pii()` and delimiter blocks. Every AI-detected tactic must contain a verbatim quote present in the input text; ungrounded tactics are automatically dropped. AI-only findings are capped at Medium severity and never set final risk levels alone.
 
-**Correlation (P1):** indicators extracted per report — registrable domain, server IPs, TLS certificate fingerprint,
+**Correlation:** indicators extracted per report — registrable domain, server IPs, TLS certificate fingerprint,
 emails, phone numbers, UPI ids — plus message text similarity (≥ 80%). IPs shared by ≥ 5 different domains are
 ignored (CDN/shared hosting). Matches against the same website are shown as **"checked before"**; matches with a
 different site or message are shown as **"possibly part of the same campaign"**.
 
 ## Blockchain registry & verification
 
-**Contract (P1):** `contracts/contracts/ThreatRegistry.sol` (Solidity 0.8.24, Hardhat 2, 6 tests). Stores per report
+**Contract:** `contracts/contracts/ThreatRegistry.sol` (Solidity 0.8.24, Hardhat 2, 6 tests). Stores per report
 only `bytes32` hash, submitter, timestamp, risk label, status (active/disputed/revised) and revision history.
 
 **Flow:**
@@ -81,5 +81,30 @@ only `bytes32` hash, submitter, timestamp, risk label, status (active/disputed/r
    hash matches **and** the slot was submitted by the official wallet **and** within 24 h of report creation;
    otherwise `mismatch`, `untrusted_submitter` or `registered_late`.
 
-**Networks:** local Hardhat chain (`npm run chain`) for development; Sepolia testnet for the demo
-(**P4:** deployment address + transaction links go here).
+**Networks:** local Hardhat chain (`npm run chain`) for development; **Ethereum Sepolia** for the live site:
+
+| | |
+|---|---|
+| Contract | [`0x089F4b08bcDBDEA5e3328D38676A63017266cb2e`](https://sepolia.etherscan.io/address/0x089F4b08bcDBDEA5e3328D38676A63017266cb2e) |
+| Deploy transaction | [`0x36b9…1638`](https://sepolia.etherscan.io/tx/0x36b9736b270e67485ed59a2db27d1970b710774a2fab8d06c2e8757c31451638) |
+| Official TrustLens wallet (submitter) | [`0xf4f0a75a18b6F88d04F8564BF472E1EBDAC61256`](https://sepolia.etherscan.io/address/0xf4f0a75a18b6F88d04F8564BF472E1EBDAC61256) |
+| RPC | `https://ethereum-sepolia-rpc.publicnode.com` (public, no key) |
+
+One seal costs about 695,000 gas. Details in `contracts/deployments/sepolia.json`.
+
+## Data storage
+
+| Where | What is stored |
+|---|---|
+| **Postgres (Neon)**, production | Every report as full JSON (`reports`) and its indicators for correlation (`indicators`). Set with `DATABASE_URL`. Needed because Render's free plan wipes the server disk on every sleep, restart and redeploy |
+| **SQLite** `backend/data/app.db`, local | The same two tables, used when `DATABASE_URL` is empty (development, tests, the tamper demo) |
+| **Ethereum Sepolia** | Only each sealed report's SHA-256 fingerprint, its risk level, the time and the sealing wallet. Never the link, the message or any personal data |
+| **Browser** | Nothing except a session flag so the intro animation plays once |
+
+## Frontend
+
+React 19 + Vite + TypeScript + Tailwind CSS v4, deployed on Vercel. Pages: landing (`/`), check (`/check`),
+report (`/report/:id`), history (`/history`), verify (`/verify/:id`). Checker pages are code-split and load on
+first visit. Motion uses `motion` (Framer Motion) and `lenis` (smooth scrolling); the hero background is a small
+hand-written WebGL shader. The check page shows the backend pipeline live while a check runs; every number on the
+report page is computed from the report itself. Everything degrades to a still page under reduced motion.

@@ -38,14 +38,14 @@ Judging weights: Cybersecurity 30% · AI 20% · Web3 20% · Technical 20% · UX 
 ## 3. Folder structure & ownership
 
 P1 (team lead) owns the hard, tightly-connected parts. P2–P4 own self-contained modules with clear
-inputs/outputs and a step-by-step guide in `docs/tasks/`.
+inputs/outputs.
 
-| Person | Role | Step-by-step guide |
-|---|---|---|
-| **P1 — Lead** | Pipeline & risk engine, SSRF-safe fetching, TLS certificate analysis, LLM wrapper & AI explanations, correlation, blockchain backend (`web3.py`), dashboard, integration, demo | [docs/tasks/P1-lead.md](docs/tasks/P1-lead.md) |
-| **P2 — Security checks** | URL/phishing indicators, DNS & domain age, threat-intel feeds, security headers | [docs/tasks/P2-security.md](docs/tasks/P2-security.md) |
-| **P3 — Scam messages (AI)** | Indicator extraction, scam-pattern rules, sample message dataset, scam-classification prompt | [docs/tasks/P3-ai.md](docs/tasks/P3-ai.md) |
-| **P4 — Web3 & testing** | Sepolia deployment (contract already written by P1), registry/verify UI, testing report, demo script | [docs/tasks/P4-web3.md](docs/tasks/P4-web3.md) |
+| Person | Role |
+|---|---|
+| **P1 — Lead** | Pipeline & risk engine, SSRF-safe fetching, TLS certificate analysis, LLM wrapper & AI explanations, correlation, blockchain backend (`web3.py`), dashboard, integration, demo |
+| **P2 — Security checks** | URL/phishing indicators, DNS & domain age, threat-intel feeds, security headers |
+| **P3 — Scam messages (AI)** | Indicator extraction, scam-pattern rules, sample message dataset, scam-classification prompt |
+| **P4 — Web3 & testing** | Sepolia deployment (contract already written by P1), registry/verify UI, testing report, demo script |
 
 ```
 /
@@ -313,7 +313,6 @@ Everything below already exists and runs (`python -m pytest -q` in `backend/` pa
   message `data["indicators"]` (`emails`, `phones`, `upi_ids`).
 - Frontend: Investigate page (URL + message tabs), Report page, History page, Verify page, Registry panel.
 - `backend/data/brands.json`: starter list of brands + official domains for typosquatting checks (P2 extends).
-- `docs/tasks/`: one step-by-step guide per person — start there.
 - Add tests for your module in `backend/tests/test_<module>.py`.
 
 ---
@@ -348,7 +347,7 @@ P1 foundation checklist:
 
 ### Phase 2 — Build modules into the skeleton (Hour 3–16)
 
-Full step-by-step instructions, examples and "done when" checks are in `docs/tasks/`. Summary:
+Summary:
 
 | Who | Builds (in this order) |
 |---|---|

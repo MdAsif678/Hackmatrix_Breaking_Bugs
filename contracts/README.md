@@ -23,4 +23,4 @@ The local chain starts empty every time `npm run chain` restarts: run `npm run d
 stays `0x5FbDB2315678afecb367f032d93F642f64180aa3`). Reports registered on an earlier local chain can't be verified
 afterwards. That's why the demo uses Sepolia.
 
-Step-by-step for P4: [docs/tasks/P4-web3.md](../docs/tasks/P4-web3.md).
+Deployed on Sepolia: see [deployments/sepolia.json](deployments/sepolia.json).

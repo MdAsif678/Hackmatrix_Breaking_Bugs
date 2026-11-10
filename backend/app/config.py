@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     check_timeout_seconds: float = 8.0
     mock_analyzers: bool = False
     max_message_urls: int = 3
+    # Where reports are stored. Empty = the SQLite file below (local development). On a host whose disk is wiped
+    # on restart (Render's free plan), set DATABASE_URL to a hosted Postgres, e.g. a free Neon database:
+    # postgresql://user:password@host/dbname?sslmode=require
+    database_url: str = ""
     db_path: Path = DATA_DIR / "app.db"
     # Websites allowed to call this API from a browser. Local dev is always allowed; add the live frontend with
     # CORS_ORIGINS=https://your-app.vercel.app (comma-separated for several).
