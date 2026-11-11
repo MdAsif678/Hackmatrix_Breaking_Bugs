@@ -191,4 +191,8 @@ docs/         architecture, security methodology, testing report, demo script, d
 
 ## License
 
-Built for the HackMatrix 2026 hackathon by Team Breaking Bugs.
+© 2026 Team Breaking Bugs (Mohammed Asif Ali, Md Azhar Khan, Md Adil Shamim). **All rights reserved.**
+The code is published for viewing and evaluation only; it may not be copied, reused or deployed without written
+permission. See [LICENSE](LICENSE).
+
+Built for the HackMatrix 2026 hackathon.
