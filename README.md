@@ -74,13 +74,13 @@ More detail: [architecture](docs/architecture.md) · [security methodology](docs
 
 | Place | What is stored |
 |---|---|
-| **Postgres database (Neon)**, used by the live backend | Every report as JSON (`reports` table) and its indicators (domains, IPs, certificates, phones, UPI IDs, emails) for linking related scams (`indicators` table). Set with `DATABASE_URL`. |
+| **Postgres database (Neon)**, for hosted deployments | Every report as JSON (`reports` table) and its indicators (domains, IPs, certificates, phones, UPI IDs, emails) for linking related scams (`indicators` table). Used whenever `DATABASE_URL` is set. |
 | **SQLite file** `backend/data/app.db`, on your laptop | The same two tables, used automatically when `DATABASE_URL` is empty (local development, tests, the tamper demo). Git-ignored. |
 | **Ethereum Sepolia** | Only each sealed report's SHA-256 fingerprint, risk level, time and the sealing wallet. |
 | **Your browser** | Nothing except a flag so the intro animation plays once per visit. |
 
 Render's free plan wipes the server's own disk whenever it sleeps, restarts or redeploys, which is why the live
-backend keeps reports in a hosted Postgres database instead. See [deployment](docs/deployment.md#2-backend-deployment-render).
+backend supports a hosted Postgres database for reports. See [deployment](docs/deployment.md#2-backend-deployment-render).
 
 ## Team Breaking Bugs
 

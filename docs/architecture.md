@@ -38,7 +38,7 @@ which can be sealed on a blockchain for independent tamper-evidence.
 | SSRF guard | `app/core/safe_fetch.py` | Public-IP-only fetching, IP pinning, per-hop redirect validation, size/time limits |
 | TLS analysis | `app/analyzers/tls_analyzer.py` | Certificate trust, identity, strength, revocation (OCSP/CRL), CT history, distrusted CAs |
 | Correlation | `app/correlation/engine.py` | Indexes indicators per report; links reports by exact matches; labels each link `same_site` or `campaign` |
-| Storage | `app/db.py` | `reports` (full JSON) + `indicators` (kind, value) index. Hosted Postgres (Neon) in production via `DATABASE_URL`; SQLite file `backend/data/app.db` locally |
+| Storage | `app/db.py` | `reports` (full JSON) + `indicators` (kind, value) index. Hosted Postgres (Neon) via `DATABASE_URL`; SQLite file `backend/data/app.db` locally |
 | Registry | `app/registry/hashing.py`, `chain.py` | Canonical SHA-256 of a report; submit/verify against the contract with 3 checks |
 
 **Report format:** `app/schemas.py` (mirrored in `frontend/src/types.ts`). Every finding carries severity, evidence,
@@ -96,7 +96,7 @@ One seal costs about 695,000 gas. Details in `contracts/deployments/sepolia.json
 
 | Where | What is stored |
 |---|---|
-| **Postgres (Neon)**, production | Every report as full JSON (`reports`) and its indicators for correlation (`indicators`). Set with `DATABASE_URL`. Needed because Render's free plan wipes the server disk on every sleep, restart and redeploy |
+| **Postgres (Neon)**, hosted deployments | Every report as full JSON (`reports`) and its indicators for correlation (`indicators`). Set with `DATABASE_URL`. Needed because Render's free plan wipes the server disk on every sleep, restart and redeploy |
 | **SQLite** `backend/data/app.db`, local | The same two tables, used when `DATABASE_URL` is empty (development, tests, the tamper demo) |
 | **Ethereum Sepolia** | Only each sealed report's SHA-256 fingerprint, its risk level, the time and the sealing wallet. Never the link, the message or any personal data |
 | **Browser** | Nothing except a session flag so the intro animation plays once |
