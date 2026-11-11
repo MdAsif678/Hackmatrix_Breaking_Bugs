@@ -73,7 +73,7 @@ official wallet `0xf4f0…1256`.
 
 ---
 
-## Message and scam test cases (Md Shahzeb Ali)
+## Message and scam test cases (Md Azhar Khan)
 
 | # | Input | Type | Expected | Observed risk level | Key findings | Notes |
 |---|---|---|---|---|---|---|

@@ -10,7 +10,6 @@ const TEAM = [
   ['Mohammed Asif Ali', 'MdAsif678'],
   ['Md Azhar Khan', 'azhar07kh-design'],
   ['Md Adil Shamim', 'adilsam-anon'],
-  ['Md Shahzeb Ali', 'mdshahzebali'],
 ] as const
 
 function GitHubIcon() {

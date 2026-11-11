@@ -87,8 +87,7 @@ backend keeps reports in a hosted Postgres database instead. See [deployment](do
 | Member | GitHub | Area | Work |
 |---|---|---|---|
 | **Mohammed Asif Ali** | [@MdAsif678](https://github.com/MdAsif678) | Core platform | Analysis pipeline and risk engine, TLS certificate checks and SSRF protection, Gemini AI explanations, database design, website design and deployment. |
-| **Md Azhar Khan** | [@azhar07kh-design](https://github.com/azhar07kh-design) | Security checks | Lookalike and typosquatting detection, domain age and DNS, threat-intelligence feeds (OpenPhish, URLhaus, Safe Browsing), security headers and the report dashboard. |
-| **Md Shahzeb Ali** | [@mdshahzebali](https://github.com/mdshahzebali) | Scam messages and AI | Extraction of links, phone numbers and UPI IDs, scam-pattern rules for KYC, OTP and job-fee frauds, sample message dataset and AI classification. |
+| **Md Azhar Khan** | [@azhar07kh-design](https://github.com/azhar07kh-design) | Security checks and scam messages | Lookalike detection, domain age, threat-intelligence feeds and security headers; scam-message analysis with scam-pattern rules, a sample dataset and AI classification. |
 | **Md Adil Shamim** | [@adilsam-anon](https://github.com/adilsam-anon) | Blockchain | Smart contract deployment on Ethereum Sepolia, testnet wallet and network setup, blockchain seal and Verify pages with Etherscan links. |
 
 ## Tech stack
