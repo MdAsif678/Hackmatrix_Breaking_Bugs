@@ -110,30 +110,51 @@ export function LensField({ className = '', play = true }: { className?: string;
 
     const reduced = prefersReducedMotion()
     const coarse = window.matchMedia('(pointer: coarse)').matches
-    // Resolution: phones get up to 2x (dense screens; a low-res canvas stretched over them looks blurry);
-    // desktops up to 1.25x, sharp at normal viewing distance and still cheap on big screens.
-    const scale = Math.min(window.devicePixelRatio || 1, coarse ? 2 : 1.25)
+    // Without a graphics chip (software rendering: virtual machines, old laptops, a GPU the browser has blocked)
+    // this shader would take the whole processor and make every click lag. Then: one still frame, no animation.
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info')
+    const renderer = String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER)).toLowerCase()
+    const software = /swiftshader|llvmpipe|softpipe|software|basic render/.test(renderer)
+    const still = reduced || software
+    // Resolution: phones up to 2x (dense screens look blurry otherwise), desktops up to 1.25x, but never more than a
+    // fixed pixel budget, and lower again if frames turn out slow on this device (see the frame timer below).
+    const base = Math.min(window.devicePixelRatio || 1, coarse ? 2 : 1.25)
+    const budget = software ? 0.25e6 : coarse ? 0.9e6 : 1.1e6
+    let quality = 1
+    let scale = base
     let w = 0, h = 0
     const resize = () => {
       // Layout size, not getBoundingClientRect: the hero zooms with transforms, which must not change the resolution.
-      w = Math.max(1, Math.round(canvas.clientWidth * scale))
-      h = Math.max(1, Math.round(canvas.clientHeight * scale))
+      const cw = Math.max(1, canvas.clientWidth), ch = Math.max(1, canvas.clientHeight)
+      scale = Math.min(base * quality, Math.sqrt(budget / (cw * ch)))
+      const ow = w, oh = h
+      w = Math.max(1, Math.round(cw * scale))
+      h = Math.max(1, Math.round(ch * scale))
       canvas.width = w
       canvas.height = h
       gl.viewport(0, 0, w, h)
+      if (ow && oh) {
+        // keep the lens where it was when the resolution changes
+        for (const v of [pos, target]) {
+          v.x *= w / ow
+          v.y *= h / oh
+        }
+      }
     }
+    const pos = { x: 0, y: 0 }
+    const target = { x: 0, y: 0 }
     resize()
-    // Resizing clears the canvas; under reduced motion nothing else redraws it, so draw the still frame again.
+    pos.x = target.x = w * 0.68
+    pos.y = target.y = h * 0.5
+    // Resizing clears the canvas; in still mode nothing else redraws it, so draw the still frame again.
     const ro = new ResizeObserver(() => {
       resize()
-      if (reduced) loop()
+      if (still) loop()
     })
     ro.observe(canvas)
 
     // Lens position: stays on the pointer while it is over the page; drifts on its own only when there is no
     // pointer (touch screens) or it has left the window.
-    const pos = { x: w * 0.68, y: h * 0.5 }
-    const target = { x: pos.x, y: pos.y }
     const pointer = { x: 0, y: 0, inside: false }
     const onMove = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return
@@ -174,20 +195,35 @@ export function LensField({ className = '', play = true }: { className?: string;
       pos.x += (target.x - pos.x) * follow
       pos.y += (target.y - pos.y) * follow
       const since = playAt.current === null ? 0 : (now - playAt.current) / 1000
-      const intro = reduced ? 1 : Math.min(1, Math.max(0, since) / 1.8)
+      const intro = still ? 1 : Math.min(1, Math.max(0, since) / 1.8)
       gl.uniform2f(uRes, w, h)
-      gl.uniform1f(uTime, reduced ? 12 : t + 12)
+      gl.uniform1f(uTime, still ? 12 : t + 12)
       gl.uniform2f(uMouse, pos.x, pos.y)
       gl.uniform1f(uLens, Math.min(w, h) * (coarse ? 0.22 : 0.17))
       gl.uniform1f(uIntro, 1 - Math.pow(1 - intro, 3))
       gl.uniform1f(uLine, 1.1 * scale + 0.4) // about 1.2 CSS px wide at any resolution
       gl.drawArrays(gl.TRIANGLES, 0, 3)
     }
+    // Frame timer: if this device cannot keep up (slower than ~45 frames a second), lower the resolution in steps.
+    let last = 0, slow = 0, counted = 0
     const loop = () => {
       cancelAnimationFrame(frame)
+      last = 0
       const tick = (now: number) => {
         draw(now)
-        if (!reduced && visible && !document.hidden) frame = requestAnimationFrame(tick)
+        if (last && !still) {
+          counted++
+          if (now - last > 22) slow++
+          if (counted >= 45) {
+            if (slow > 30 && quality > 0.4) {
+              quality *= 0.7
+              resize()
+            }
+            counted = slow = 0
+          }
+        }
+        last = now
+        if (!still && visible && !document.hidden) frame = requestAnimationFrame(tick)
       }
       frame = requestAnimationFrame(tick)
     }
