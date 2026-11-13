@@ -10,6 +10,7 @@ import { CheckOverview, EvidenceConsole } from '../components/EvidenceConsole'
 import { CHECK_LABEL, RISK_META } from '../components/labels'
 import { PipelineSummary } from '../components/PipelineSummary'
 import { Card, CountUp, CoverageRing, Pill, WarningShare } from '../components/ReportCharts'
+import { LensSpinner, Skeleton, Swap } from '../components/Loading'
 import { RiskBadge } from '../components/RiskBadge'
 import { SeverityTag } from '../components/Severity'
 import { RegistryPanel } from '../features/registry/RegistryPanel'
@@ -118,9 +119,75 @@ export default function ReportPage() {
     api.correlations(id).then((r) => setRelated(r.related)).catch(() => setRelated([]))
   }, [id])
 
-  if (error) return <p className="text-risk-malicious">Could not load this report: {error}</p>
-  if (!report) return <p className="text-muted">Loading the report…</p>
+  return (
+    <Swap loading={!report && !error} skeleton={<ReportSkeleton />}>
+      {error && <p className="text-risk-malicious">Could not load this report: {error}</p>}
+      {report && <ReportView report={report} related={related} onChange={setReport} />}
+    </Swap>
+  )
+}
 
+/** The report's layout in grey while it loads: breadcrumb, verdict, four stat cards, charts, then the body. */
+function ReportSkeleton() {
+  return (
+    <div>
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-48" />
+        <LensSpinner label="Loading the report…" className="ml-auto" />
+      </div>
+      <div className="mt-10">
+        <Skeleton className="h-8 w-36 rounded-full" />
+        <Skeleton className="mt-6 h-9 w-[min(560px,90%)]" />
+        <Skeleton className="mt-3 h-9 w-[min(380px,70%)]" />
+        <Skeleton className="mt-5 h-4 w-[min(620px,95%)]" />
+        <Skeleton className="mt-2.5 h-4 w-[min(480px,80%)]" />
+      </div>
+      <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="panel p-5">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-5 w-12 rounded-full" />
+            </div>
+            <Skeleton className="mt-6 h-8 w-16" />
+            <Skeleton className="mt-3 h-3 w-32 max-w-full" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="panel flex items-center gap-5 p-5">
+            <Skeleton className="h-20 w-20 shrink-0 rounded-full" />
+            <div className="flex-1">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-3 h-3 w-full" />
+              <Skeleton className="mt-2 h-3 w-2/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:gap-6">
+        <div className="lg:col-span-8">
+          <Skeleton className="h-4 w-40" />
+          {[92, 84, 88, 60].map((w, i) => (
+            <Skeleton key={i} className="mt-3 h-3.5" style={{ width: `${w}%` }} />
+          ))}
+        </div>
+        <div className="lg:col-span-4">
+          <div className="panel p-5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-4 h-3 w-full" />
+            <Skeleton className="mt-2 h-3 w-4/5" />
+            <Skeleton className="mt-5 h-10 w-full rounded-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReportView({ report, related, onChange }: { report: AnalysisReport; related: RelatedReport[]; onChange: (r: AnalysisReport) => void }) {
   const allFindings = report.checks.flatMap((c) => c.findings)
   const findingsById = new Map(allFindings.map((f) => [f.id, f]))
   const sameSite = related.filter((r) => r.relation === 'same_site')
@@ -265,7 +332,7 @@ export default function ReportPage() {
 
         <aside className="space-y-8 lg:col-span-4">
           <Rise i={4}>
-            <RegistryPanel report={report} onRegistered={(chain) => setReport({ ...report, chain })} />
+            <RegistryPanel report={report} onRegistered={(chain) => onChange({ ...report, chain })} />
           </Rise>
 
           {report.recommendations.length > 0 && (

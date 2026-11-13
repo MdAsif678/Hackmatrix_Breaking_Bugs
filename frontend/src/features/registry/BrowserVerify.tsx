@@ -1,7 +1,9 @@
 // "Checked in your browser": the same three checks as Verify, done without trusting the TrustLens server for the
 // result. The server only supplies the stored report text; everything else happens here. Owner: P1.
+import { motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
+import { LensSpinner, Skeleton } from '../../components/Loading'
 import { readSeal, SEPOLIA, sha256Hex, type OnchainRecord } from './onchain'
 
 type Outcome = {
@@ -93,12 +95,27 @@ export function BrowserVerify({ reportId }: { reportId: string }) {
         does not depend on trusting the TrustLens server.
       </p>
 
-      {state === 'checking' && <p className="mt-4 text-[14px] text-muted">Reading the blockchain…</p>}
+      {state === 'checking' && (
+        <div className="mt-4">
+          <LensSpinner label="Reading the blockchain…" />
+          <ul className="mt-2 divide-y divide-line">
+            {['58%', '46%', '52%'].map((w, i) => (
+              <li key={i} className="flex gap-3 py-2.5">
+                <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+                <span className="block flex-1">
+                  <Skeleton className="h-3.5" style={{ width: w }} />
+                  <Skeleton className="mt-2 h-3 w-[70%]" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {state === 'error' && (
         <p className="mt-4 text-[14px] text-risk-suspicious">Could not read the blockchain from your browser: {error}</p>
       )}
       {outcome && (
-        <ul className="mt-3 divide-y divide-line">
+        <motion.ul className="mt-3 divide-y divide-line" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
           <Row
             ok={outcome.matches}
             label={outcome.matches ? 'Fingerprint matches the one on-chain' : 'Fingerprint differs: the report was changed after sealing'}
@@ -114,7 +131,7 @@ export function BrowserVerify({ reportId }: { reportId: string }) {
             label={outcome.inTime ? `Sealed within ${SEPOLIA.windowHours} hours of the report` : `Sealed more than ${SEPOLIA.windowHours} hours after the report`}
             detail={new Date(outcome.record.timestamp * 1000).toLocaleString()}
           />
-        </ul>
+        </motion.ul>
       )}
       <p className="mt-3 font-mono text-[11px] text-faint">
         Contract {SEPOLIA.contract} via {new URL(SEPOLIA.rpc).host}
