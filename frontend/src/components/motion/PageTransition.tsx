@@ -1,9 +1,10 @@
 // Page transitions, built on the lens. Owner: P1.
 // Landing <-> checker: a dark lens with a blue rim opens from the point you clicked until it covers the page; the
-// new page then appears through a lens opening from the centre of the screen, zooming out from 112% to 100%, as if
-// you had looked through the lens and stepped in. Inside the checker, pages cross-fade with a small rise.
-// Only clip-path and transform animate (no layout). Reduced motion: no lens, no zoom.
-import { animate, AnimatePresence, motion, MotionConfig, useMotionValue, usePresence, useReducedMotion, useTransform } from 'motion/react'
+// new page then fades in while settling from a slight zoom, as if you had looked through the lens and stepped in.
+// Inside the checker, pages cross-fade with a small rise.
+// Only transform and opacity animate, run by the browser's compositor (no repaint per frame, no layout), so the
+// transition stays smooth on slow phones and laptops too. Reduced motion: no lens, no zoom.
+import { AnimatePresence, motion, MotionConfig, usePresence, useReducedMotion } from 'motion/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useOutlet } from 'react-router-dom'
 import { ScrollBar } from './ScrollBar'
@@ -13,76 +14,63 @@ const point = { x: 0, y: 0 }
 // Set after the first page has mounted: the very first page load gets no transition (the intro covers it).
 let booted = false
 
-const diag = () => Math.hypot(window.innerWidth, window.innerHeight)
 const farthest = (x: number, y: number) =>
   Math.max(Math.hypot(x, y), Math.hypot(window.innerWidth - x, y), Math.hypot(x, window.innerHeight - y), Math.hypot(window.innerWidth - x, window.innerHeight - y))
 
-/** A ring between radius r and r + band around (cx, cy), as a clip-path (evenodd cuts the inner circle out). */
-function ring(cx: number, cy: number, r: number, band: number) {
-  const o = r + band
-  const c = (rad: number) => `M${cx - rad} ${cy}a${rad} ${rad} 0 1 0 ${2 * rad} 0a${rad} ${rad} 0 1 0 ${-2 * rad} 0Z`
-  return `path(evenodd, '${c(o)} ${r > 0 ? c(r) : ''}')`
-}
+const EASE_IN_OUT = [0.7, 0, 0.3, 1] as const
+const EASE_OUT = [0.22, 1, 0.36, 1] as const
 
-/** On leaving: the dark lens opens from the click point, its blue rim leading, until the screen is covered. */
+/** On leaving: the dark lens grows from the click point, its blue rim leading, until the screen is covered. */
 function LensExit() {
   const [isPresent, safeToRemove] = usePresence()
   const reduce = useReducedMotion()
-  const r = useMotionValue(0)
-  const disc = useTransform(r, (v) => `circle(${v}px at ${point.x}px ${point.y}px)`)
-  const rim = useTransform(r, (v) => ring(point.x, point.y, v, 12))
 
   useEffect(() => {
-    if (isPresent) return
-    if (reduce) {
-      safeToRemove()
-      return
-    }
-    const ctl = animate(r, farthest(point.x, point.y) + 30, { duration: 0.42, ease: [0.7, 0, 0.3, 1] })
-    ctl.then(() => safeToRemove())
-    return () => ctl.stop()
-  }, [isPresent, reduce, r, safeToRemove])
+    if (!isPresent && reduce) safeToRemove()
+  }, [isPresent, reduce, safeToRemove])
 
   if (isPresent || reduce) return null
+  // One full-size disc, scaled up from nothing: drawn once, then only transformed.
+  const R = farthest(point.x, point.y) + 40
   return (
-    <>
-      <motion.div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[70] bg-link/45" style={{ clipPath: rim }} />
-      <motion.div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[71] bg-[#060606]" style={{ clipPath: disc }} />
-    </>
+    <motion.div
+      aria-hidden="true"
+      className="pointer-events-none fixed z-[70] rounded-full"
+      style={{
+        left: point.x - R,
+        top: point.y - R,
+        width: 2 * R,
+        height: 2 * R,
+        background: 'radial-gradient(circle closest-side, #060606 0 97.5%, rgba(141,177,255,0.6) 98.6%, rgba(141,177,255,0) 100%)',
+      }}
+      initial={{ transform: 'scale(0)' }}
+      animate={{ transform: 'scale(1)' }}
+      transition={{ duration: 0.4, ease: EASE_IN_OUT }}
+      onAnimationComplete={() => safeToRemove()}
+    />
   )
 }
 
-/** On arriving: the page shows through a lens that opens from the centre, and zooms out into place. */
+/** On arriving: the page fades in and settles from a slight zoom into place. */
 function LensPage({ children }: { children: ReactNode }) {
   const reduce = useReducedMotion()
   const [enter] = useState(() => booted && !reduce)
-  const [opening, setOpening] = useState(enter)
-  const r = useMotionValue(enter ? 0 : -1)
-  const cy = () => window.innerHeight / 2
-  const clip = useTransform(r, (v) => (v < 0 ? 'none' : `circle(${v}px at 50% ${cy()}px)`))
-  const rim = useTransform(r, (v) => ring(window.innerWidth / 2, cy(), Math.max(0, v), 10))
-
-  useEffect(() => {
-    if (!enter) return
-    const ctl = animate(r, diag() / 2 + 30, { duration: 0.75, ease: [0.22, 1, 0.36, 1] })
-    ctl.then(() => {
-      r.set(-1) // drop the clip entirely once open
-      setOpening(false)
-    })
-    return () => ctl.stop()
-  }, [enter, r])
 
   return (
     <>
-      <motion.div
-        style={{ clipPath: clip, transformOrigin: `50% ${cy()}px` }}
-        initial={{ scale: enter ? 1.12 : 1 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {children}
-      </motion.div>
-      {opening && <motion.div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[70] bg-link/35" style={{ clipPath: rim }} />}
+      {enter ? (
+        <motion.div
+          style={{ transformOrigin: `50% ${window.innerHeight / 2}px` }}
+          initial={{ opacity: 0, transform: 'scale(1.05)' }}
+          // Back to no transform at the end: a leftover transform would pin fixed elements (the navbar) to this box.
+          animate={{ opacity: 1, transform: 'scale(1)', transitionEnd: { transform: 'none' } }}
+          transition={{ duration: 0.55, ease: EASE_OUT }}
+        >
+          {children}
+        </motion.div>
+      ) : (
+        <div>{children}</div>
+      )}
       <LensExit />
     </>
   )
@@ -132,9 +120,9 @@ export function PageFade() {
     <AnimatePresence mode="wait" onExitComplete={() => window.scrollTo(0, 0)}>
       <motion.div
         key={pathname}
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
-        exit={{ opacity: 0, y: -8, transition: { duration: 0.2, ease: 'easeIn' } }}
+        initial={{ opacity: 0, transform: 'translateY(12px)' }}
+        animate={{ opacity: 1, transform: 'translateY(0px)', transitionEnd: { transform: 'none' }, transition: { duration: 0.4, ease: EASE_OUT } }}
+        exit={{ opacity: 0, transform: 'translateY(-6px)', transition: { duration: 0.16, ease: 'easeIn' } }}
       >
         {outlet}
       </motion.div>
