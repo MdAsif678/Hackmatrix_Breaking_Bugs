@@ -37,3 +37,4 @@ Thumbs.db
 *.token
 token.txt
 .git-credentials
+.neon
