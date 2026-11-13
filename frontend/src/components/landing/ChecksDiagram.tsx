@@ -4,7 +4,7 @@
 import { useInView } from 'motion/react'
 import { useRef } from 'react'
 
-const LANES = ['Lookalike names', 'Domain age', 'Phishing lists', 'Certificate', 'Security settings']
+const LANES = ['Lookalike names', 'Domain age', 'Phishing lists', 'Certificate', 'Website and page']
 const LANE_Y = [50, 120, 190, 260, 330]
 
 export function ChecksDiagram() {

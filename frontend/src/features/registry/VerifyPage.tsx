@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { VerifyResult } from '../../types'
+import { BrowserVerify } from './BrowserVerify'
 
 interface OutcomeMeta {
   headline: string
@@ -281,6 +282,9 @@ export default function VerifyPage() {
           </div>
         </section>
       )}
+
+      {/* The same checks, done independently in the visitor's browser straight from the blockchain */}
+      {result && id && result.status !== 'not_registered' && <BrowserVerify reportId={id} />}
     </div>
   )
 }

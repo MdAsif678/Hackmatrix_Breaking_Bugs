@@ -1,5 +1,5 @@
 // "Blockchain seal" block in the report sidebar. Owner: P4 (polished for Sepolia testnet).
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { AnalysisReport, ChainRecord } from '../../types'
@@ -39,6 +39,17 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
 export function RegistryPanel({ report, onRegistered }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Seconds since sealing started: a Sepolia transaction takes 15 to 30 s, so show what is happening meanwhile.
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (!busy) return
+    const started = Date.now()
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 500)
+    return () => {
+      clearInterval(id)
+      setElapsed(0)
+    }
+  }, [busy])
 
   async function register() {
     setBusy(true)
@@ -165,6 +176,22 @@ export function RegistryPanel({ report, onRegistered }: Props) {
           )}
           {busy ? 'Sealing on Sepolia…' : 'Seal this report on-chain'}
         </button>
+      )}
+
+      {busy && (
+        <ol className="mt-3 grid gap-1.5 text-[13px]" aria-live="polite">
+          {[
+            ['Fingerprint computed (SHA-256)', 0],
+            ['Transaction sent to Ethereum Sepolia', 2],
+            ['Waiting for the network to confirm it (usually 15 to 30 s)', 4],
+          ].map(([label, from]) => (
+            <li key={label as string} className={`flex items-center gap-2 ${elapsed >= (from as number) ? 'text-muted' : 'text-faint/60'}`}>
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${elapsed >= (from as number) ? 'bg-link' : 'bg-line-strong'}`} />
+              {label}
+            </li>
+          ))}
+          <li className="pl-3.5 font-mono text-[12px] text-faint">{elapsed} s</li>
+        </ol>
       )}
 
       {error && <p className="mt-3 text-[13px] leading-relaxed text-risk-suspicious">{error}</p>}

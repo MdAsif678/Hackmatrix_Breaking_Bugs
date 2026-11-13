@@ -20,13 +20,13 @@ Built by **Team Breaking Bugs** for the **HackMatrix 2026** hackathon: *AI-Power
 
 | | |
 |---|---|
-| **Check a link or website** | Lookalike names (paypa1, Cyrillic letters), domain age, five phishing and malware feeds, the TLS certificate (expired, revoked, self-signed, distrusted issuers) and the site's security settings. |
+| **Check a link or website** | Lookalike names (paypa1, Cyrillic letters), domain age, phishing and malware feeds, the TLS certificate (expired, revoked, self-signed, distrusted issuers), the site's security settings, and what the page itself asks for: a login form under a brand the domain does not own, passwords sent to another site, card or OTP fields. |
 | **Check a message** | Pulls out every link, phone number, UPI ID and email, matches known scam patterns (fake KYC, OTP theft, job fees, lottery lures), and checks every link inside. |
 | **A verdict you can trust** | Fixed rules decide between *Low Risk, Suspicious, High Risk, Confirmed Malicious* and *Inconclusive*. The AI never decides it and never calls a site "safe". |
 | **Evidence, not a score** | Every finding says what was seen and where it came from. Coverage shows how much evidence could be gathered. |
 | **Explanations in plain English** | Google Gemini writes the explanation from the findings only; each sentence must point to a finding, or it is removed. |
 | **Linked scams** | Reports that share a server, certificate, phone number or UPI ID are shown together as a possible campaign. |
-| **Tamper-proof reports** | The report's SHA-256 fingerprint is sealed on Ethereum Sepolia. Verify proves the report is unchanged, sealed by the official TrustLens wallet, and sealed in time. |
+| **Tamper-proof reports** | The report's SHA-256 fingerprint is sealed on Ethereum Sepolia. Verify proves the report is unchanged, sealed by the official TrustLens wallet, and sealed in time, and your browser repeats the check by reading the blockchain directly, without trusting our server. |
 
 ## Screenshots
 

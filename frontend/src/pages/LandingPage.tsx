@@ -199,7 +199,7 @@ const DEMO_CAPTIONS = [
   ['Domain age', 'The domain was registered four days ago.'],
   ['Known phishing lists', 'Not listed yet. Most new scam pages are not.'],
   ['Certificate', 'Valid, which only means the connection is encrypted.'],
-  ['Security settings', 'Two common protections are missing.'],
+  ['Website and page', 'Two common protections are missing.'],
   ['High Risk', 'Fixed rules decide the verdict. The AI only explains it.'],
 ] as const
 
@@ -316,7 +316,7 @@ const CHECKS = [
   ['Domain age', 'When the domain was registered. Most scam pages are days old when the first message goes out.'],
   ['Known phishing lists', 'OpenPhish and Phishing Army, which together list more than 140,000 reported phishing domains.'],
   ['Certificate', 'Whether the padlock is expired, revoked, self-signed, issued to another site or issued by an authority browsers distrust.'],
-  ['Security settings', 'How the site is set up: HTTPS redirects, security headers and redirects to other websites.'],
+  ['Website and page', 'How the site is set up, and what the page asks for: login forms under a brand it does not own, card or OTP fields, hidden scripts. The AI reads the page too.'],
 ] as const
 
 const FAQ = [

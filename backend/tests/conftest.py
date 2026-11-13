@@ -13,6 +13,8 @@ def temp_db(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "urlhaus_auth_key", "")  # never call real threat-intel APIs from tests
     monkeypatch.setattr(settings, "google_safe_browsing_api_key", "")
     monkeypatch.setattr(settings, "sepolia_rpc_url", "")  # never send real blockchain transactions
+    monkeypatch.setattr(settings, "database_url", "")  # always the temporary SQLite file, never a real database
+    monkeypatch.setattr(settings, "rate_limit_enabled", False)  # tests call the API many times
 
 
 @pytest.fixture

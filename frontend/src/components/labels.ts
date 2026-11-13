@@ -29,7 +29,7 @@ export const CHECK_LABEL: Record<CheckName, string> = {
   dns: 'Domain age and DNS',
   threat_intel: 'Known phishing lists',
   tls: 'Certificate and trust',
-  headers: 'Website security settings',
+  headers: 'Website and page content',
   message: 'Message analysis',
 }
 

@@ -38,7 +38,7 @@ function LensExit() {
       safeToRemove()
       return
     }
-    const ctl = animate(r, farthest(point.x, point.y) + 30, { duration: 0.62, ease: [0.7, 0, 0.3, 1] })
+    const ctl = animate(r, farthest(point.x, point.y) + 30, { duration: 0.42, ease: [0.7, 0, 0.3, 1] })
     ctl.then(() => safeToRemove())
     return () => ctl.stop()
   }, [isPresent, reduce, r, safeToRemove])
@@ -64,7 +64,7 @@ function LensPage({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!enter) return
-    const ctl = animate(r, diag() / 2 + 30, { duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.05 })
+    const ctl = animate(r, diag() / 2 + 30, { duration: 0.75, ease: [0.22, 1, 0.36, 1] })
     ctl.then(() => {
       r.set(-1) // drop the clip entirely once open
       setOpening(false)
@@ -78,7 +78,7 @@ function LensPage({ children }: { children: ReactNode }) {
         style={{ clipPath: clip, transformOrigin: `50% ${cy()}px` }}
         initial={{ scale: enter ? 1.12 : 1 }}
         animate={{ scale: 1 }}
-        transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
       >
         {children}
       </motion.div>

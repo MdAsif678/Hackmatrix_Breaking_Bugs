@@ -68,7 +68,8 @@ def normalize_target(raw: str) -> tuple[str, str]:
 def _timeout_for(check: CheckName) -> float:
     # The message check may call the LLM, which is slower than a network check.
     # TLS also queries Certificate Transparency + OCSP, which can be slow.
-    extra = {"message": settings.llm_timeout_seconds, "tls": 6.0}.get(check, 0.0)
+    # headers: room for the optional AI review of the page text (content_analyzer.AI_TIMEOUT)
+    extra = {"message": settings.llm_timeout_seconds, "tls": 6.0, "headers": 10.0}.get(check, 0.0)
     return settings.check_timeout_seconds + extra
 
 

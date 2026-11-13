@@ -48,13 +48,18 @@ export function Preloader({ onReveal }: { onReveal: () => void }) {
     window.scrollTo(0, 0)
     stopScroll(true)
     let cancelled = false
-    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
-    const fonts = Promise.race([document.fonts?.ready ?? Promise.resolve(), wait(1500)])
+    // A tap, click or key press skips straight to the opening; the intro never stands between someone and the site.
+    let skip: () => void = () => {}
+    const skipped = new Promise<void>((resolve) => (skip = resolve))
+    window.addEventListener('pointerdown', skip, { once: true })
+    window.addEventListener('keydown', skip, { once: true })
+    const wait = (ms: number) => Promise.race([new Promise((r) => setTimeout(r, ms)), skipped])
+    const fonts = Promise.race([document.fonts?.ready ?? Promise.resolve(), wait(1200)])
     const run = async () => {
-      await Promise.all([wait(850), fonts]) // the lens draws itself meanwhile
+      await Promise.all([wait(650), fonts]) // the lens draws itself meanwhile
       if (cancelled) return
       setPhase('clear') // the glass fades clear: it is now a window onto the page
-      await wait(520)
+      await wait(380)
       if (cancelled) return
       setPhase('open')
       onReveal()
@@ -64,7 +69,7 @@ export function Preloader({ onReveal }: { onReveal: () => void }) {
         /* private mode */
       }
       await animate(hole, Math.hypot(window.innerWidth, window.innerHeight) / 2 + 40, {
-        duration: 1.15,
+        duration: 0.9,
         ease: [0.76, 0, 0.24, 1],
       })
       stopScroll(false)
@@ -73,6 +78,8 @@ export function Preloader({ onReveal }: { onReveal: () => void }) {
     run()
     return () => {
       cancelled = true
+      window.removeEventListener('pointerdown', skip)
+      window.removeEventListener('keydown', skip)
       stopScroll(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

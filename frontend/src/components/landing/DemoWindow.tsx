@@ -9,7 +9,7 @@ export const DEMO_ROWS = [
   { name: 'Domain age', result: 'Registered 4 days ago', sev: 'high' },
   { name: 'Known phishing lists', result: 'Not listed yet', sev: 'info' },
   { name: 'Certificate', result: 'Valid, first issued 3 days ago', sev: 'medium' },
-  { name: 'Security settings', result: '2 protections missing', sev: 'low' },
+  { name: 'Website and page', result: '2 protections missing', sev: 'low' },
 ] as const
 
 const ease = [0.22, 1, 0.36, 1] as const

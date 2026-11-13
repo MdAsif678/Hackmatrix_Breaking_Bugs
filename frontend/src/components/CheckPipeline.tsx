@@ -18,7 +18,7 @@ const SHORT: Record<CheckName, string> = {
   dns: 'Domain age',
   threat_intel: 'Phishing lists',
   tls: 'Certificate',
-  headers: 'Security settings',
+  headers: 'Website and page',
   message: 'Scam patterns',
 }
 const URL_CHECKS: CheckName[] = ['url', 'dns', 'threat_intel', 'tls', 'headers']
@@ -270,6 +270,14 @@ export function CheckPipeline({
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-faint">{target}</span>
         <span className="font-mono text-[12px] tabular-nums text-faint">{elapsed.toFixed(1)} s</span>
       </div>
+
+      {/* A check normally takes 5 to 15 s. Much longer means the free server was asleep: say so, so it never looks stuck. */}
+      {!report && !error && elapsed > 18 && (
+        <p className="border-b border-line bg-sunken px-5 py-3 text-[13px] leading-relaxed text-muted">
+          Taking longer than usual: the server was asleep and is starting up. This happens after a quiet spell and
+          can take up to a minute. Your check will continue on its own.
+        </p>
+      )}
 
       <ol className="p-5 sm:p-6">
         {stages.map((s, i) => {

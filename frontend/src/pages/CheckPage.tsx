@@ -37,7 +37,7 @@ function AutoHeight({ children }: { children: ReactNode }) {
   )
 }
 
-const STEPS = ['Lookalike names', 'Domain age', 'Known phishing lists', 'Certificate', 'Security settings', 'Explanation']
+const STEPS = ['Lookalike names', 'Domain age', 'Known phishing lists', 'Certificate', 'Website and page content', 'Explanation']
 
 export default function CheckPage() {
   const navigate = useNavigate()

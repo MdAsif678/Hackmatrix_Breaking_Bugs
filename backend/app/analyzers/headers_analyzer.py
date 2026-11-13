@@ -167,6 +167,14 @@ async def analyze(target: str) -> CheckResult:
                 "headers": dict(resp.headers),
                 "redirect_chain": resp.redirect_chain,
             }
+            # What the page asks the visitor for (login forms, card/OTP fields, brand copying), from the same HTML.
+            from app.analyzers.content_analyzer import ai_review, inspect_html
+
+            page_findings, page_data, page_text, worth_ai = inspect_html(resp.final_url, body_text)
+            findings += page_findings
+            if worth_ai:
+                findings += await ai_review(resp.final_url, page_text)
+            data["page"] = page_data
         except Exception as exc:  # unreachable, blocked by the SSRF guard, timeout...
             status = "error"
             from app.core.safe_fetch import describe_fetch_error

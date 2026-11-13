@@ -15,7 +15,7 @@ const SHORT: Record<CheckResult['check'], string> = {
   dns: 'Domain age',
   threat_intel: 'Phishing lists',
   tls: 'Certificate',
-  headers: 'Security settings',
+  headers: 'Website and page',
   message: 'Scam patterns',
 }
 const WEIGHT: Record<Severity, number> = { critical: 8, high: 4, medium: 2, low: 1, info: 0 }
